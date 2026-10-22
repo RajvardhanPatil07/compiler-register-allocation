@@ -72,7 +72,7 @@ program = st.text_area(
     "Three-Address Code",
     value=default_program,
     height=180,
-    help="Supported expressions can contain variables, constants, +, -, *, / and %.",
+    help="Use a variable or number, optionally with one operator (+, -, *, /, %) and a second value per instruction.",
 )
 
 register_count = st.slider(
@@ -140,9 +140,9 @@ try:
     if graph.number_of_nodes():
         positions = nx.kamada_kawai_layout(graph)
 
-        cmap = plt.get_cmap("tab10")
+        cmap = plt.get_cmap("tab20")
         node_colors = [
-            cmap(coloring[node] % 10)
+            cmap(coloring[node] % 20)
             for node in graph.nodes()
         ]
         labels = {
@@ -178,7 +178,7 @@ try:
 
         legend_handles = [
             Patch(
-                facecolor=cmap(i % 10),
+                facecolor=cmap(i % 20),
                 edgecolor="black",
                 label=f"R{i + 1} / Color {i}",
             )
