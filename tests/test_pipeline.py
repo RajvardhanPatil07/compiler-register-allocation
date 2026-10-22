@@ -113,6 +113,21 @@ class InterferenceAndColoringTests(unittest.TestCase):
         self.assertEqual(stats["edges"], 1)
         self.assertEqual(stats["connected_components"], 3)
 
+    def test_unused_final_definition_is_isolated_until_used(self):
+        program = "a = b + c\nd = a * e\nunused = d + c"
+        instructions = parse_program(program)
+        live_in, live_out = analyze_liveness(instructions)
+        graph = build_interference_graph(instructions, live_in, live_out)
+
+        self.assertEqual(graph.degree("unused"), 0)
+
+        program_with_use = program + "\nresult = unused + a"
+        instructions = parse_program(program_with_use)
+        live_in, live_out = analyze_liveness(instructions)
+        graph = build_interference_graph(instructions, live_in, live_out)
+
+        self.assertGreater(graph.degree("unused"), 0)
+
 
 if __name__ == "__main__":
     unittest.main()
