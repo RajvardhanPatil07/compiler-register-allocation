@@ -29,6 +29,10 @@ class ParserTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             parse_program("  \n\n")
 
+    def test_rejects_empty_right_hand_side(self):
+        with self.assertRaises(ValueError):
+            parse_line("value =", 1)
+
 
 class LivenessTests(unittest.TestCase):
     def test_liveness_for_straight_line_program(self):
@@ -82,17 +86,20 @@ class InterferenceAndColoringTests(unittest.TestCase):
         graph = build_interference_graph(instructions, live_in, live_out)
         coloring = color_graph(graph)
 
+        self.assertTrue(graph.has_edge("a", "b"))
+        self.assertTrue(graph.has_edge("a", "c"))
+        self.assertTrue(graph.has_edge("b", "c"))
         self.assertEqual(coloring_count(coloring), 3)
 
-    def test_graph_statistics(self):
+    def test_graph_statistics_include_isolated_vertices(self):
         instructions = parse_program("x = a + b\nresult = x")
         live_in, live_out = analyze_liveness(instructions)
         graph = build_interference_graph(instructions, live_in, live_out)
         stats = graph_statistics(graph)
 
-        self.assertEqual(stats["vertices"], graph.number_of_nodes())
-        self.assertEqual(stats["edges"], graph.number_of_edges())
-        self.assertEqual(stats["connected_components"], 1)
+        self.assertEqual(stats["vertices"], 4)
+        self.assertEqual(stats["edges"], 1)
+        self.assertEqual(stats["connected_components"], 3)
 
 
 if __name__ == "__main__":
