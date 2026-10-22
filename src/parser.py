@@ -1,4 +1,4 @@
-"Parser for simplified three-address-code input."""
+"""Parser for simplified three-address-code input."""
 
 import re
 from dataclasses import dataclass
@@ -13,26 +13,34 @@ class Instruction:
     define: Set[str]
 
 
-VARIABLE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+VARIABLE = r"[A-Za-z_][A-Za-z0-9_]*"
+NUMBER = r"\d+(?:\.\d+)?"
+VALUE = rf"(?:{VARIABLE}|{NUMBER})"
+RIGHT_HAND_SIDE = re.compile(
+    rf"^\s*{VALUE}(?:\s*[+\-*/%]\s*{VALUE})?\s*$"
+)
 
 
 def parse_line(line: str, number: int) -> Instruction:
     text = line.strip()
     if not text:
         raise ValueError("Empty instruction.")
-    if "=" not in text:
-        raise ValueError(f"Line {number}: expected an assignment containing '='.")
+    if text.count("=") != 1:
+        raise ValueError(f"Line {number}: expected one assignment operator '='.")
 
     left, right = text.split("=", 1)
     left = left.strip()
     right = right.strip()
 
-    if not VARIABLE.match(left):
+    if not re.fullmatch(VARIABLE, left):
         raise ValueError(f"Line {number}: invalid destination variable '{left}'.")
-    if not right:
-        raise ValueError(f"Line {number}: the right-hand side cannot be empty.")
+    if not RIGHT_HAND_SIDE.fullmatch(right):
+        raise ValueError(
+            f"Line {number}: use a variable or number, optionally followed "
+            "by one operator (+, -, *, /, %) and another variable or number."
+        )
 
-    tokens = re.findall(r"[A-Za-z_][A-Za-z0-9_]*", right)
+    tokens = re.findall(VARIABLE, right)
     use = set(tokens)
 
     # Keep the destination in USE when it appears on the right side,
