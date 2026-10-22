@@ -16,7 +16,7 @@ Variables in a program are represented as vertices of an interference graph. An 
 - Greedy graph coloring with register labels
 - Register-count slider and allocation status
 - Example programs for experimenting with different inputs
-- Basic automated tests
+- Basic automated tests and GitHub Actions checks
 
 ## Discrete Mathematics concepts
 
@@ -49,6 +49,10 @@ From the repository root:
 ```bash
 python -m unittest discover -s tests -v
 ```
+
+## Demo guide
+
+Follow [the demo experiments](docs/experiments.md) for repeatable demonstrations of register-budget changes, isolated variables, program edits, and input validation.
 
 ## How to experiment
 
