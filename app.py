@@ -11,33 +11,34 @@ from src.parser import parse_program
 
 
 st.set_page_config(
-    page_title="Compiler Register Allocation — Graph Coloring Lab",
+    page_title="Register Allocation | Graph Coloring Laboratory",
     page_icon="🔢",
     layout="wide",
 )
 
-st.title("Compiler Register Allocation — Graph Coloring Lab")
-st.write(
-    "Experiment with simplified three-address code and observe how parsing, "
-    "liveness, interference, graph coloring, and register availability change."
+st.title("Register Allocation Through Graph Coloring")
+st.caption("DISCRETE MATHEMATICS LABORATORY  •  COMPILER DESIGN  •  GRAPH THEORY")
+st.markdown(
+    "Explore how variable liveness determines interference relationships and how "
+    "graph coloring maps variables to a limited set of registers."
 )
 
 examples = {
-    "Custom": "",
+    "Custom Program": "",
     "Multiplication and Division": """t1 = a * b
 t2 = t1 / c
 t3 = t2 + d
 result = t3 - e""",
-    "Modulo and Copy": """x = a % b
+    "Modulo and Copy Assignment": """x = a % b
 y = x
 z = y * c
 result = z + d""",
-    "Mixed Operations": """t1 = a * b
+    "Mixed Arithmetic Operations": """t1 = a * b
 t2 = c / d
 t3 = t1 + t2
 t4 = t3 % e
 result = t4 - f""",
-    "Longer Program": """p = a * b
+    "Extended Instruction Sequence": """p = a * b
 q = p + c
 r = q / d
 s = r % e
@@ -54,36 +55,39 @@ d = a * e
 unused = d + c""",
 }
 
+st.subheader("Program Configuration")
 example_name = st.selectbox(
-    "Try an example",
+    "Example program",
     list(examples.keys()),
     index=3,
-    help="Choose an example, or choose Custom and edit the code yourself.",
+    help="Select a predefined program or choose Custom Program to enter your own instructions.",
 )
 
 default_program = examples[example_name]
-if example_name == "Custom":
+if example_name == "Custom Program":
     default_program = """a = b + c
 d = a + e
 f = d + c
 g = f + a"""
 
 program = st.text_area(
-    "Three-Address Code",
+    "Three-address code",
     value=default_program,
     height=180,
-    help="Use a variable or number, optionally with one operator (+, -, *, /, %) and a second value per instruction.",
+    help=(
+        "Supported format: destination = value, or destination = value operator value. "
+        "Operators: +, -, *, /, %. Each instruction may contain at most one operator."
+    ),
 )
 
 register_count = st.slider(
-    "Available registers",
+    "Available register count",
     min_value=1,
     max_value=12,
     value=3,
     help=(
-        "Change the number of registers to see allocation succeed or become "
-        "insufficient. The interference graph itself depends on the program, "
-        "not on this slider."
+        "Set the register budget used to evaluate the greedy coloring result. "
+        "Changing this value does not alter the interference graph."
     ),
 )
 
@@ -98,44 +102,47 @@ try:
     used_colors = coloring_count(coloring)
     greedy_fits = used_colors <= register_count
 
-    st.subheader("1. Parsed Instructions")
+    st.subheader("01  |  Instruction Parsing")
+    st.caption("Each instruction is represented by its variables used (USE) and defined (DEF).")
     rows = [
         {
             "Instruction": x.number,
-            "Code": x.text,
+            "Three-Address Code": x.text,
             "USE": ", ".join(sorted(x.use)) or "∅",
             "DEF": ", ".join(sorted(x.define)) or "∅",
         }
         for x in instructions
     ]
-    st.dataframe(pd.DataFrame(rows), use_container_width=True)
+    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
-    st.subheader("2. Liveness Analysis")
+    st.subheader("02  |  Liveness Analysis")
+    st.caption("LIVE-IN identifies variables live before an instruction; LIVE-OUT identifies variables live after it.")
     rows = [
         {
             "Instruction": x.number,
-            "Code": x.text,
+            "Three-Address Code": x.text,
             "LIVE-IN": ", ".join(sorted(live_in[i])) or "∅",
             "LIVE-OUT": ", ".join(sorted(live_out[i])) or "∅",
         }
         for i, x in enumerate(instructions)
     ]
-    st.dataframe(pd.DataFrame(rows), use_container_width=True)
+    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
-    st.subheader("3. Interference Graph")
+    st.subheader("03  |  Interference Graph")
+    st.caption("Vertices represent variables. An edge connects variables that cannot share a register in this model.")
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Variables", stats["vertices"])
+    c1.metric("Vertices", stats["vertices"])
     c2.metric("Edges", stats["edges"])
-    c3.metric("Maximum Degree", stats["max_degree"])
+    c3.metric("Maximum Vertex Degree", stats["max_degree"])
     c4.metric("Connected Components", stats["connected_components"])
 
     if graph.number_of_edges():
-        with st.expander("Inspect interference edges"):
+        with st.expander("View interference edge list"):
             edge_rows = [
-                {"Variable A": left, "Variable B": right}
+                {"Variable 1": left, "Variable 2": right}
                 for left, right in sorted(graph.edges())
             ]
-            st.dataframe(pd.DataFrame(edge_rows), use_container_width=True)
+            st.dataframe(pd.DataFrame(edge_rows), use_container_width=True, hide_index=True)
 
     if graph.number_of_nodes():
         positions = nx.kamada_kawai_layout(graph)
@@ -187,7 +194,7 @@ try:
         if legend_handles:
             ax.legend(
                 handles=legend_handles,
-                title="Register Allocation",
+                title="Assigned Registers",
                 loc="upper right",
                 fontsize=9,
             )
@@ -195,65 +202,65 @@ try:
         st.pyplot(fig, use_container_width=True)
         plt.close(fig)
 
-    st.subheader("4. Graph Coloring and Register Allocation")
+    st.subheader("04  |  Register Allocation")
+    st.caption("The greedy coloring assigns a register label to each variable in the interference graph.")
     rows = []
     for variable in sorted(graph.nodes()):
         color = coloring.get(variable)
         rows.append(
             {
                 "Variable": variable,
-                "Color": color,
-                "Register": f"R{color + 1}",
-                "Degree": graph.degree(variable),
+                "Color Index": color,
+                "Assigned Register": f"R{color + 1}",
+                "Vertex Degree": graph.degree(variable),
             }
         )
-    st.dataframe(pd.DataFrame(rows), use_container_width=True)
+    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
     c1, c2, c3 = st.columns(3)
-    c1.metric("Greedy Colors Used", used_colors)
-    c2.metric("Registers Available", register_count)
+    c1.metric("Colors Used by Greedy Algorithm", used_colors)
+    c2.metric("Available Registers", register_count)
 
     if greedy_fits:
-        c3.metric("Spare Registers", register_count - used_colors)
+        c3.metric("Unused Registers", register_count - used_colors)
         st.success(
-            f"The current greedy assignment fits: it uses {used_colors} color(s) "
-            f"and {register_count} register(s) are available."
+            f"Register budget satisfied by the current greedy coloring: "
+            f"{used_colors} color(s) assigned within a budget of {register_count} register(s)."
         )
     else:
-        c3.metric("Register Shortage", used_colors - register_count)
+        c3.metric("Register Budget Deficit", used_colors - register_count)
         st.warning(
-            f"The current greedy assignment does not fit: it uses {used_colors} "
-            f"color(s), but only {register_count} register(s) are available."
+            f"The current greedy coloring uses {used_colors} color(s), exceeding "
+            f"the available register budget of {register_count}."
         )
         st.caption(
-            "Greedy coloring does not test every possible coloring. A different "
-            "valid coloring may use fewer colors; this version does not search "
-            "for that alternative."
+            "This result reflects the selected greedy strategy, not a proof that no "
+            "alternative coloring could fit the available register budget. "
+            "Register spilling and alternative-coloring search are not implemented."
         )
 
     st.info(
-        "DM interpretation: variables are vertices, interference is represented "
-        "by edges, and registers are colors. Adjacent vertices cannot receive "
-        "the same color."
+        "**Graph-coloring model:** variables are vertices, interference relationships "
+        "are edges, and registers are colors. Adjacent vertices must receive different colors."
     )
 
-    st.subheader("5. Experiment — Observe the Cause and Effect")
+    st.subheader("05  |  Interactive Experiments")
     st.markdown(
         """
-Try changing one thing at a time:
+Use the controls above to investigate the relationship between program structure and register allocation.
 
-- **Registers:** move the slider from 2 → 3 → 4. The program and interference graph stay the same, but allocation may change from insufficient to possible.
-- **Remove an instruction:** liveness can change, which can remove variables or edges.
-- **Add an instruction or variable:** new USE/DEF information can create new interference relationships.
-- **Make a dead variable:** define a variable and never use it later. It may appear as an isolated vertex.
-- **Fix an error:** syntax errors are shown below the input so you can edit the program and immediately try again.
+- **Vary the register budget:** compare the allocation result with 2, 3, and 4 available registers.
+- **Modify the instruction sequence:** add or remove an instruction and observe changes in liveness and interference.
+- **Examine an isolated vertex:** select *Isolated Variable* and inspect the graph for a variable with no interference edges.
+- **Compare program structures:** select different examples to compare graph statistics and register assignments.
+- **Evaluate input validation:** enter an unsupported expression and review the diagnostic message.
         """
     )
 
 except ValueError as exc:
-    st.warning("The current input cannot be analyzed yet.")
-    st.error(str(exc))
-    st.write(
-        "Edit the three-address code above, add or remove an instruction, "
-        "or choose one of the example programs and try again."
+    st.warning("Analysis could not be completed for the current input.")
+    st.error(f"Input validation: {exc}")
+    st.caption(
+        "Review the instruction format above, correct the reported issue, "
+        "or select a predefined example to continue the analysis."
     )
