@@ -12,6 +12,10 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(instruction.use, {"price", "count"})
         self.assertEqual(instruction.define, {"total"})
 
+    def test_accepts_copy_and_number_assignments(self):
+        self.assertEqual(parse_line("copy = value", 1).use, {"value"})
+        self.assertEqual(parse_line("answer = 42", 1).use, set())
+
     def test_self_reference_is_used(self):
         instruction = parse_line("value = value + 1", 1)
         self.assertEqual(instruction.use, {"value"})
@@ -32,6 +36,14 @@ class ParserTests(unittest.TestCase):
     def test_rejects_empty_right_hand_side(self):
         with self.assertRaises(ValueError):
             parse_line("value =", 1)
+
+    def test_rejects_malformed_expression(self):
+        with self.assertRaises(ValueError):
+            parse_line("value = a + * b", 1)
+
+    def test_rejects_multiple_equals(self):
+        with self.assertRaises(ValueError):
+            parse_line("value == a", 1)
 
 
 class LivenessTests(unittest.TestCase):
