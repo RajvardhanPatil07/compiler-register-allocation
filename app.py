@@ -96,7 +96,7 @@ try:
     stats = graph_statistics(graph)
     coloring = color_graph(graph)
     used_colors = coloring_count(coloring)
-    allocation_possible = used_colors <= register_count
+    greedy_fits = used_colors <= register_count
 
     st.subheader("1. Parsed Instructions")
     rows = [
@@ -212,17 +212,23 @@ try:
     c1, c2, c3 = st.columns(3)
     c1.metric("Greedy Colors Used", used_colors)
     c2.metric("Registers Available", register_count)
-    c3.metric("Register Difference", register_count - used_colors)
 
-    if allocation_possible:
+    if greedy_fits:
+        c3.metric("Spare Registers", register_count - used_colors)
         st.success(
-            f"Allocation is possible: {register_count} register(s) are available "
-            f"for {used_colors} greedy color(s)."
+            f"The current greedy assignment fits: it uses {used_colors} color(s) "
+            f"and {register_count} register(s) are available."
         )
     else:
+        c3.metric("Register Shortage", used_colors - register_count)
         st.warning(
-            f"Allocation is insufficient: the greedy coloring uses {used_colors} "
+            f"The current greedy assignment does not fit: it uses {used_colors} "
             f"color(s), but only {register_count} register(s) are available."
+        )
+        st.caption(
+            "Greedy coloring does not test every possible coloring. A different "
+            "valid coloring may use fewer colors; this version does not search "
+            "for that alternative."
         )
 
     st.info(
