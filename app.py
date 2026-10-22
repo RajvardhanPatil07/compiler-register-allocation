@@ -50,8 +50,8 @@ t4 = t1 + t2
 t5 = t3 + t4
 result = t5 + a""",
     "Isolated Variable": """a = b + c
-dead = a * d
-result = a + c""",
+d = a * e
+unused = d + c""",
 }
 
 example_name = st.selectbox(
