@@ -1,4 +1,4 @@
-"""Parser for simplified three-address-code input."""
+"Parser for simplified three-address-code input."""
 
 import re
 from dataclasses import dataclass
@@ -29,10 +29,14 @@ def parse_line(line: str, number: int) -> Instruction:
 
     if not VARIABLE.match(left):
         raise ValueError(f"Line {number}: invalid destination variable '{left}'.")
+    if not right:
+        raise ValueError(f"Line {number}: the right-hand side cannot be empty.")
 
     tokens = re.findall(r"[A-Za-z_][A-Za-z0-9_]*", right)
-    use = {token for token in tokens if VARIABLE.match(token)}
-    use.discard(left)
+    use = set(tokens)
+
+    # Keep the destination in USE when it appears on the right side,
+    # as in "value = value + 1".
     return Instruction(number, text, use, {left})
 
 
