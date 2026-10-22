@@ -1,4 +1,5 @@
 import unittest
+from pathlib import Path
 
 from src.coloring import color_graph, coloring_count
 from src.interference import build_interference_graph, graph_statistics
@@ -127,6 +128,20 @@ class InterferenceAndColoringTests(unittest.TestCase):
         graph = build_interference_graph(instructions, live_in, live_out)
 
         self.assertGreater(graph.degree("unused"), 0)
+
+    def test_repository_sample_runs_through_full_pipeline(self):
+        repository_root = Path(__file__).resolve().parents[1]
+        sample_path = repository_root / "examples" / "sample_program.txt"
+        program = sample_path.read_text(encoding="utf-8")
+
+        instructions = parse_program(program)
+        live_in, live_out = analyze_liveness(instructions)
+        graph = build_interference_graph(instructions, live_in, live_out)
+        coloring = color_graph(graph)
+
+        self.assertEqual(set(coloring), set(graph.nodes()))
+        for left, right in graph.edges():
+            self.assertNotEqual(coloring[left], coloring[right])
 
 
 if __name__ == "__main__":
