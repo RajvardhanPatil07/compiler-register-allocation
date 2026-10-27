@@ -29,7 +29,7 @@ class SpillingTests(unittest.TestCase):
     def test_spill_candidate_uses_highest_degree_then_name(self):
         graph = nx.complete_graph(["c", "b", "a"])
         result = allocate_with_spilling(graph, 2)
-        self.assertEqual(result["spilled"], ["a", "b"])
+        self.assertEqual(result["spilled"], ["a"])
         self.assertEqual(result["registers_used"], 2)
 
 
