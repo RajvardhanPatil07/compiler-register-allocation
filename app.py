@@ -19,6 +19,7 @@ from src.liveness import analyze_liveness, liveness_equation
 from src.live_ranges import build_live_ranges
 from src.relation_check import build_complement_graph, check_relation_properties
 from src.validity import check_coloring_validity
+from src.parser import parse_program
 
 
 st.set_page_config(
