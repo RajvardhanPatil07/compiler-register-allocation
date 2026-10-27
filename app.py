@@ -1,5 +1,3 @@
-import math
-
 import matplotlib.pyplot as plt
 import networkx as nx
 import pandas as pd
@@ -68,19 +66,23 @@ def load_example() -> None:
 
 
 def draw_graph(graph: nx.Graph, coloring: dict, width: float = 8.5,
-               height: float = 4.8):
+               height: float | None = None):
     # DM concept: vertices and edges draw the interference graph; colors show register assignments.
-    fig, ax = plt.subplots(figsize=(width, height))
-    if graph.number_of_nodes() == 0:
+    count = graph.number_of_nodes()
+    figure_height = height if height is not None else max(5.5, min(7.5, 4.5 + count * 0.18))
+    fig, ax = plt.subplots(figsize=(width, figure_height))
+    if count == 0:
         ax.text(0.5, 0.5, "No variables to draw", ha="center", va="center")
         ax.set_axis_off()
         fig.tight_layout(pad=0.5)
         return fig
 
-    count = graph.number_of_nodes()
-    positions = nx.spring_layout(
-        graph, seed=31, k=1.0 / math.sqrt(count), iterations=100, scale=0.85
-    )
+    density = nx.density(graph)
+    if count > 9 or density >= 0.45:
+        positions = nx.circular_layout(graph, scale=0.9)
+    else:
+        positions = nx.kamada_kawai_layout(graph, scale=0.9)
+
     components = list(nx.connected_components(graph))
     outline_palette = plt.get_cmap("tab10", max(1, len(components)))
     register_palette = plt.get_cmap("tab20")
@@ -99,20 +101,26 @@ def draw_graph(graph: nx.Graph, coloring: dict, width: float = 8.5,
             labels[vertex] = str(vertex)
         outlines.append(outline_palette(component_number[vertex]))
 
-    nx.draw_networkx_edges(graph, positions, ax=ax, edge_color="#777777", width=1.3)
-    nx.draw_networkx_nodes(
-        graph, positions, ax=ax, node_color=faces, edgecolors=outlines,
-        node_size=1150, linewidths=2.4
+    node_size = max(620, min(1200, 12000 / count))
+    font_size = max(7, min(10, 11 - count * 0.18))
+    nx.draw_networkx_edges(
+        graph, positions, ax=ax, edge_color="#777777",
+        width=1.0 if count > 10 else 1.3, alpha=0.75
     )
-    nx.draw_networkx_labels(graph, positions, labels=labels, ax=ax, font_size=9,
-                            font_weight="bold")
-    ax.set_xlim(-1.2, 1.2)
-    ax.set_ylim(-1.2, 1.2)
+    nx.draw_networkx_nodes(
+        graph, positions, ax=ax, node_color=faces,
+        edgecolors=outlines, node_size=node_size, linewidths=2.2
+    )
+    nx.draw_networkx_labels(
+        graph, positions, labels=labels, ax=ax,
+        font_size=font_size, font_weight="bold"
+    )
+    ax.set_xlim(-1.22, 1.22)
+    ax.set_ylim(-1.22, 1.22)
     ax.set_aspect("equal", adjustable="box")
     ax.set_axis_off()
-    fig.tight_layout(pad=0.5)
+    fig.tight_layout(pad=0.35)
     return fig
-
 
 st.title("Register Allocation Laboratory")
 st.caption("A visual, step-by-step introduction to the Discrete Mathematics behind compiler registers.")
