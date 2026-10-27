@@ -1,5 +1,6 @@
+import math
+
 import matplotlib.pyplot as plt
-from matplotlib.patches import Patch
 import networkx as nx
 import pandas as pd
 import streamlit as st
@@ -17,85 +18,144 @@ from src.graph_stats import (
 from src.interference import build_interference_graph, graph_statistics
 from src.liveness import analyze_liveness, liveness_equation
 from src.live_ranges import build_live_ranges
+from src.parser import parse_program
 from src.relation_check import build_complement_graph, check_relation_properties
 from src.validity import check_coloring_validity
-from src.parser import parse_program
 
 
 st.set_page_config(
-    page_title="Register Allocation | Graph Coloring Laboratory",
+    page_title="Register Allocation Laboratory",
     page_icon="🔢",
     layout="wide",
 )
-st.title("Register Allocation Through Graph Coloring")
-st.caption("DISCRETE MATHEMATICS LABORATORY  •  COMPILER DESIGN  •  GRAPH THEORY")
-st.markdown(
-    "Explore how variable liveness determines interference relationships and how "
-    "graph coloring maps variables to a limited set of registers."
-)
 
-examples = {
-    "Custom Program": "",
-    "Multiplication and Division": """t1 = a * b
-t2 = t1 / c
-t3 = t2 + d
-result = t3 - e""",
-    "Modulo and Copy Assignment": """x = a % b
-y = x
-z = y * c
-result = z + d""",
-    "Mixed Arithmetic Operations": """t1 = a * b
+EXAMPLES = {
+    "Custom Program": """a = b + c
+d = a + e
+result = d + c""",
+    "Easy: Simple chain": """t1 = a + b
+t2 = t1 + c
+result = t2 + d""",
+    "Mixed arithmetic": """t1 = a * b
 t2 = c / d
 t3 = t1 + t2
-t4 = t3 % e
-result = t4 - f""",
-    "Extended Instruction Sequence": """p = a * b
+result = t3 - e""",
+    "Extended sequence": """p = a * b
 q = p + c
 r = q / d
 s = r % e
 t = s + p
 result = t * f""",
-    "High Interference": """t1 = a + b
+    "High interference": """t1 = a + b
 t2 = c + d
 t3 = e + f
 t4 = t1 + t2
 t5 = t3 + t4
 result = t5 + a""",
-    "Isolated Variable": """a = b + c
+    "Isolated variable": """a = b + c
 d = a * e
 unused = d + c""",
 }
 
-st.subheader("Program Configuration")
-example_name = st.selectbox(
-    "Example program",
-    list(examples.keys()),
-    index=3,
-    help="Select a predefined program or choose Custom Program to enter your own instructions.",
+
+def load_example() -> None:
+    # DM concept: example programs are finite instruction sequences for testing the graph model.
+    selected = st.session_state["example_choice"]
+    if selected == "Custom Program":
+        st.session_state["program_text"] = EXAMPLES["Custom Program"]
+    else:
+        st.session_state["program_text"] = EXAMPLES[selected]
+
+
+def draw_graph(graph: nx.Graph, coloring: dict, width: float = 8.5,
+               height: float = 4.8):
+    # DM concept: vertices and edges draw the interference graph; colors show register assignments.
+    fig, ax = plt.subplots(figsize=(width, height))
+    if graph.number_of_nodes() == 0:
+        ax.text(0.5, 0.5, "No variables to draw", ha="center", va="center")
+        ax.set_axis_off()
+        fig.tight_layout(pad=0.5)
+        return fig
+
+    count = graph.number_of_nodes()
+    positions = nx.spring_layout(
+        graph, seed=31, k=1.0 / math.sqrt(count), iterations=100, scale=0.85
+    )
+    components = list(nx.connected_components(graph))
+    outline_palette = plt.get_cmap("tab10", max(1, len(components)))
+    register_palette = plt.get_cmap("tab20")
+    component_number = {}
+    for number, component in enumerate(components):
+        for vertex in component:
+            component_number[vertex] = number
+
+    faces, outlines, labels = [], [], {}
+    for vertex in graph.nodes():
+        if vertex in coloring:
+            faces.append(register_palette(coloring[vertex] % 20))
+            labels[vertex] = f"{vertex}\nR{coloring[vertex] + 1}"
+        else:
+            faces.append("#eeeeee")
+            labels[vertex] = str(vertex)
+        outlines.append(outline_palette(component_number[vertex])
+
+    nx.draw_networkx_edges(graph, positions, ax=ax, edge_color="#777777", width=1.3)
+    nx.draw_networkx_nodes(
+        graph, positions, ax=ax, node_color=faces, edgecolors=outlines,
+        node_size=1150, linewidths=2.4
+    )
+    nx.draw_networkx_labels(graph, positions, labels=labels, ax=ax, font_size=9,
+                            font_weight="bold")
+    ax.set_xlim(-1.2, 1.2)
+    ax.set_ylim(-1.2, 1.2)
+    ax.set_aspect("equal", adjustable="box")
+    ax.set_axis_off()
+    fig.tight_layout(pad=0.5)
+    return fig
+
+
+st.title("Register Allocation Laboratory")
+st.caption("A visual, step-by-step introduction to the Discrete Mathematics behind compiler registers.")
+st.markdown(
+    "**The idea:** variables are vertices, interference is an edge, and registers are colors. "
+    "Connected vertices must receive different colors."
 )
-default_program = examples[example_name]
-if example_name == "Custom Program":
-    default_program = """a = b + c
-d = a + e
-f = d + c
-g = f + a"""
-program = st.text_area(
-    "Three-address code",
-    value=default_program,
-    height=180,
-    help=(
-        "Supported format: destination = value, or destination = value operator value. "
-        "Operators: +, -, *, /, %. Each instruction may contain at most one operator."
-    ),
+
+if "example_choice" not in st.session_state:
+    st.session_state["example_choice"] = "Extended sequence"
+if "program_text" not in st.session_state:
+    st.session_state["program_text"] = EXAMPLES[st.session_state["example_choice"]]
+
+with st.sidebar:
+    st.header("Your program")
+    st.caption("These controls stay available while you switch pages.")
+    st.selectbox(
+        "Choose an example",
+        list(EXAMPLES.keys()),
+        key="example_choice",
+        on_change=load_example,
+    )
+    program = st.text_area(
+        "Edit the instructions",
+        key="program_text",
+        height=180,
+        help="Write one assignment per line: x = a or x = a + b.",
+    )
+    register_count = st.slider(
+        "Available registers",
+        min_value=1,
+        max_value=12,
+        value=3,
+        help="The number of register colors that are available to the allocator.",
+    )
+    st.caption("Allowed operators: +, -, *, /, %. The input is a small teaching language, not full Python or C.")
+
+page = st.radio(
+    "Choose a page",
+    ["1 · Program", "2 · Liveness & Graph", "3 · Coloring & Results"],
+    horizontal=True,
+    label_visibility="collapsed",
 )
-register_count = st.slider(
-    "Available register count",
-    min_value=1,
-    max_value=12,
-    value=3,
-    help="Set the register budget used to evaluate the coloring result.",
-)
-st.divider()
 
 try:
     instructions = parse_program(program)
@@ -104,305 +164,228 @@ try:
     stats = graph_statistics(graph)
     coloring = color_graph(graph)
     used_colors = coloring_count(coloring)
-    greedy_fits = used_colors <= register_count
-
-    st.subheader("01  |  Instruction Parsing")
-    rows = [
-        {
-            "Instruction": item.number,
-            "Three-Address Code": item.text,
-            "USE": ", ".join(sorted(item.use)) or "∅",
-            "DEF": ", ".join(sorted(item.define)) or "∅",
-        }
-        for item in instructions
-    ]
-    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
-    st.caption("What this means: USE lists values read by an instruction; DEF lists the value it writes.")
-
-    st.subheader("02  |  Liveness Analysis")
-    rows = [
-        {
-            "Instruction": item.number,
-            "Three-Address Code": item.text,
-            "LIVE-IN": ", ".join(sorted(live_in[index])) or "∅",
-            "LIVE-OUT": ", ".join(sorted(live_out[index])) or "∅",
-            "Set equation": liveness_equation(
-                item.use, live_out[index], item.define, live_in[index]
-            ),
-        }
-        for index, item in enumerate(instructions)
-    ]
-    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
-    st.caption("What this means: union (∪) adds USE variables; set difference (−) removes variables defined by this instruction.")
-
-    st.subheader("Live Range Timeline")
-    live_range_rows = build_live_ranges(instructions, live_in, live_out)
-    live_range_frame = pd.DataFrame(live_range_rows)
-    st.dataframe(live_range_frame, use_container_width=True, hide_index=True)
-    st.caption("What this means: each bar spans a variable's live range across instruction numbers.")
-    if live_range_rows:
-        timeline_fig, timeline_ax = plt.subplots(figsize=(10, max(3, len(live_range_rows) * 0.35)))
-        for row_index, row in enumerate(live_range_rows):
-            timeline_ax.barh(
-                row["Variable"],
-                row["End"] - row["Start"] + 0.7,
-                left=row["Start"] - 0.35,
-            )
-        timeline_ax.set_xlabel("Instruction number")
-        timeline_ax.set_ylabel("Variable")
-        timeline_ax.set_xticks([item.number for item in instructions])
-        timeline_ax.grid(axis="x", linestyle=":", alpha=0.4)
-        timeline_fig.tight_layout()
-        st.pyplot(timeline_fig, use_container_width=True)
-        plt.close(timeline_fig)
-    st.caption("Two variables whose bars overlap interfere, so they get an edge.")
-
-    st.subheader("03  |  Interference Graph")
-    st.caption("What this means: vertices are variables and edges connect variables that cannot share a register.")
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Vertices", stats["vertices"])
-    c2.metric("Edges", stats["edges"])
-    c3.metric("Maximum Vertex Degree", stats["max_degree"])
-    c4.metric("Connected Components", stats["connected_components"])
-
-    with st.expander("Degree table, degree sequence and handshake lemma", expanded=True):
-        st.dataframe(degree_table(graph), use_container_width=True, hide_index=True)
-        st.caption("What this means: the degree of a variable is the number of variables it interferes with.")
-        st.write("Degree sequence (high to low):", degree_sequence(graph))
-        st.caption("What this means: the degree sequence is the sorted list of all vertex degrees.")
-        handshake = check_handshake_lemma(graph)
-        handshake_rows = [{
-            "Sum of degrees": handshake["degree_sum"],
-            "2 × number of edges": handshake["twice_edges"],
-            "Equal?": "Yes" if handshake["holds"] else "No",
-        }]
-        st.dataframe(pd.DataFrame(handshake_rows), use_container_width=True, hide_index=True)
-        st.caption("What this means: each undirected edge contributes one degree at both endpoints.")
-
-    with st.expander("Adjacency matrix", expanded=False):
-        st.dataframe(adjacency_matrix(graph), use_container_width=True)
-        st.caption("What this means: 1 means two variables share an interference edge; 0 means they do not.")
-
-    components = connected_components(graph)
-    component_rows = [
-        {"Component": index + 1, "Variables": ", ".join(component)}
-        for index, component in enumerate(components)
-    ]
-    st.dataframe(pd.DataFrame(component_rows), use_container_width=True, hide_index=True)
-    st.caption("What this means: a connected component is a group of variables joined by paths.")
-
-    if graph.number_of_edges():
-        with st.expander("View interference edge list"):
-            edge_rows = [
-                {"Variable 1": left, "Variable 2": right}
-                for left, right in sorted(graph.edges())
-            ]
-            st.dataframe(pd.DataFrame(edge_rows), use_container_width=True, hide_index=True)
-            st.caption("What this means: every edge identifies a pair that must receive different colors.")
-
-    if graph.number_of_nodes():
-        positions = nx.kamada_kawai_layout(graph)
-        register_palette = plt.get_cmap("tab20")
-        component_palette = plt.get_cmap("hsv", max(1, len(components)))
-        component_lookup = {}
-        for component_index, component in enumerate(components):
-            for variable in component:
-                component_lookup[variable] = component_index
-        node_colors = [register_palette(coloring[node] % 20) for node in graph.nodes()]
-        outline_colors = [component_palette(component_lookup[node]) for node in graph.nodes()]
-        labels = {node: f"{node}\nR{coloring[node] + 1}" for node in graph.nodes()}
-
-        fig, ax = plt.subplots(figsize=(12, 8))
-        nx.draw_networkx_edges(graph, positions, ax=ax, edge_color="gray", width=1.4)
-        nx.draw_networkx_nodes(
-            graph,
-            positions,
-            ax=ax,
-            node_color=node_colors,
-            node_size=1500,
-            edgecolors=outline_colors,
-            linewidths=3.0,
-        )
-        nx.draw_networkx_labels(graph, positions, labels=labels, ax=ax, font_size=9, font_weight="bold")
-        register_handles = [
-            Patch(facecolor=register_palette(index % 20), edgecolor="black", label=f"R{index + 1}")
-            for index in range(used_colors)
-        ]
-        component_handles = [
-            Patch(facecolor="white", edgecolor=component_palette(index), label=f"Component {index + 1}")
-            for index in range(len(components))
-        ]
-        register_legend = ax.legend(handles=register_handles, title="Register fill", loc="upper right")
-        ax.add_artist(register_legend)
-        ax.legend(handles=component_handles, title="Component outline", loc="lower right", fontsize=8)
-        ax.set_axis_off()
-        st.pyplot(fig, use_container_width=True)
-        plt.close(fig)
-        st.caption("What this means: node fill shows the assigned register; outline color identifies the connected component.")
-
     clique_vertices, clique_size = maximum_clique(graph)
-    st.subheader("Interference Relation")
-    relation_details = check_relation_properties(graph)
-    relation_rows = [
-        {"Property": "Reflexive", "Result": "Yes" if relation_details["reflexive"] else "No"},
-        {"Property": "Irreflexive", "Result": "Yes" if relation_details["irreflexive"] else "No"},
-        {"Property": "Symmetric", "Result": "Yes" if relation_details["symmetric"] else "No"},
-        {"Property": "Transitive", "Result": "Yes" if relation_details["transitive"] else "No"},
-    ]
-    st.dataframe(pd.DataFrame(relation_rows), use_container_width=True, hide_index=True)
-    st.caption("What this means: R contains ordered pairs of variables that interfere; undirected edges give symmetry.")
-    if relation_details["counterexample"] is not None:
-        first, middle, last = relation_details["counterexample"]
-        st.write(f"Transitivity counter-example: ({first}, {middle}) and ({middle}, {last}) are in R, but ({first}, {last}) is not.")
-        st.warning("R is not an equivalence relation because it is not transitive.")
+
+    if page == "1 · Program":
+        st.header("1. Program")
+        st.write("Start here: choose an example on the left or edit the code yourself.")
+        instruction_rows = []
+        for item in instructions:
+            instruction_rows.append({
+                "Line": item.number,
+                "Instruction": item.text,
+                "USE (read)": ", ".join(sorted(item.use)) or "∅",
+                "DEF (written)": ", ".join(sorted(item.define)) or "∅",
+            })
+        st.dataframe(pd.DataFrame(instruction_rows), use_container_width=True, hide_index=True)
+        st.caption("What this means: USE is the set of variables an instruction reads; DEF is the variable it writes.")
+
+        st.subheader("What the project does")
+        steps = st.columns(4)
+        steps[0].markdown("**1. Read code**\n\nFind USE and DEF.")
+        steps[1].markdown("**2. Track variables**\n\nFind when each value is still needed.")
+        steps[2].markdown("**3. Build a graph**\n\nConnect variables that cannot share a register.")
+        steps[3].markdown("**4. Assign colors**\n\nEach color represents a register.")
+        st.caption("What this means: each stage uses the result of the stage before it.")
+        summary = st.columns(3)
+        summary[0].metric("Instructions", len(instructions))
+        summary[1].metric("Variables", stats["vertices"])
+        summary[2].metric("Interference edges", stats["edges"])
+        st.info("Tip: edit one line in the sidebar, then open the next page to see how the graph changes.")
+
+    elif page == "2 · Liveness & Graph":
+        st.header("2. Liveness & Graph")
+        st.write("This page explains why two variables may need different registers.")
+        live_rows = []
+        for index, item in enumerate(instructions):
+            live_rows.append({
+                "Line": item.number,
+                "Instruction": item.text,
+                "USE": "{" + ", ".join(sorted(item.use)) + "}",
+                "DEF": "{" + ", ".join(sorted(item.define)) + "}",
+                "LIVE-IN": "{" + ", ".join(sorted(live_in[index])) + "}",
+                "LIVE-OUT": "{" + ", ".join(sorted(live_out[index])) + "}",
+                "Set equation": liveness_equation(
+                    item.use, live_out[index], item.define, live_in[index]
+                ),
+            })
+        st.subheader("When is each variable needed?")
+        st.dataframe(pd.DataFrame(live_rows), use_container_width=True, hide_index=True)
+        st.caption("What this means: union (∪) adds variables from USE; set difference (−) removes variables written by DEF.")
+
+        with st.expander("Show the live-range timeline"):
+            ranges = build_live_ranges(instructions, live_in, live_out)
+            if ranges:
+                range_fig, range_ax = plt.subplots(
+                    figsize=(9, min(5.5, max(2.6, len(ranges) * 0.32)))
+                )
+                for row in ranges:
+                    range_ax.barh(
+                        row["Variable"], row["End"] - row["Start"] + 0.7,
+                        left=row["Start"] - 0.35
+                    )
+                range_ax.set_xlabel("Instruction number")
+                range_ax.set_ylabel("Variable")
+                range_ax.set_xlim(0.5, len(instructions) + 0.5)
+                range_ax.set_xticks(list(range(1, len(instructions) + 1)))
+                range_ax.grid(axis="x", linestyle=":", alpha=0.4)
+                range_fig.tight_layout(pad=0.5)
+                st.pyplot(range_fig, use_container_width=True)
+                plt.close(range_fig)
+            st.caption("What this means: overlapping live-range bars indicate variables that may need different registers.")
+
+        st.subheader("The interference graph")
+        st.write("Each circle is a variable. An edge means the two variables must use different registers.")
+        graph_fig = draw_graph(graph, coloring)
+        st.pyplot(graph_fig, use_container_width=True)
+        plt.close(graph_fig)
+        st.caption("What this means: node fill shows the assigned register; outline color distinguishes connected components.")
+
+        metrics = st.columns(4)
+        metrics[0].metric("Variables", stats["vertices"])
+        metrics[1].metric("Edges", stats["edges"])
+        metrics[2].metric("Max degree", stats["max_degree"])
+        metrics[3].metric("Components", stats["connected_components"])
+
+        with st.expander("Advanced graph details"):
+            st.markdown("**Degree table**")
+            st.dataframe(degree_table(graph), use_container_width=True, hide_index=True)
+            st.caption("What this means: a vertex's degree is the number of incident edges.")
+            st.write("Degree sequence, highest first:", degree_sequence(graph))
+            handshake = check_handshake_lemma(graph)
+            st.write(
+                f"Handshake lemma: sum of degrees = {handshake['degree_sum']}; "
+                f"2 × edges = {handshake['twice_edges']}; "
+                f"{'they match' if handshake['holds'] else 'they do not match'}."
+            )
+            st.caption("What this means: every undirected edge contributes two to the total degree.")
+            st.markdown("**Adjacency matrix**")
+            st.dataframe(adjacency_matrix(graph), use_container_width=True)
+            st.caption("What this means: 1 means an edge exists; 0 means there is no edge.")
+            st.markdown("**Connected components**")
+            component_rows = [
+                {"Component": number + 1, "Variables": ", ".join(sorted(component))}
+                for number, component in enumerate(connected_components(graph))
+            ]
+            st.dataframe(pd.DataFrame(component_rows), use_container_width=True, hide_index=True)
+            st.caption("What this means: each component is a group of vertices connected by paths.")
+
+        with st.expander("Relation properties and complement graph"):
+            relation = check_relation_properties(graph)
+            relation_rows = [
+                {"Property": "Reflexive", "Result": "Yes" if relation["reflexive"] else "No"},
+                {"Property": "Irreflexive", "Result": "Yes" if relation["irreflexive"] else "No"},
+                {"Property": "Symmetric", "Result": "Yes" if relation["symmetric"] else "No"},
+                {"Property": "Transitive", "Result": "Yes" if relation["transitive"] else "No"},
+            ]
+            st.dataframe(pd.DataFrame(relation_rows), use_container_width=True, hide_index=True)
+            st.caption("What this means: an interference edge gives a relation between its two endpoints in both directions.")
+            if relation["counterexample"] is not None:
+                first, middle, last = relation["counterexample"]
+                st.write(
+                    f"Not transitive: ({first}, {middle}) and ({middle}, {last}) are in R, "
+                    f"but ({first}, {last}) is not."
+                )
+                st.warning("R is not an equivalence relation because it is not transitive.")
+            else:
+                st.write("The relation is transitive for this input.")
+            complement = build_complement_graph(graph)
+            complement_fig = draw_graph(complement, {})
+            st.pyplot(complement_fig, use_container_width=True)
+            plt.close(complement_fig)
+            st.caption("What this means: complement edges connect pairs that do not interfere, so they may share a register.")
+
     else:
-        st.write("No transitivity counter-example exists, so the relation is transitive for this input.")
+        st.header("3. Coloring & Results")
+        st.write("A coloring is valid when every edge connects two different colors.")
+        exact_count, exact_assignment = exact_coloring(graph)
+        top = st.columns(3)
+        top[0].metric("Greedy colors used", used_colors)
+        top[1].metric("Registers available", register_count)
+        top[2].metric("Maximum clique size", clique_size)
 
-    st.subheader("Complement Graph")
-    complement = build_complement_graph(graph)
-    if complement.number_of_nodes():
-        complement_positions = nx.spring_layout(complement, seed=17)
-        complement_fig, complement_ax = plt.subplots(figsize=(9, 5))
-        nx.draw_networkx(
-            complement,
-            complement_positions,
-            ax=complement_ax,
-            node_color="lightblue",
-            edge_color="gray",
-            node_size=1100,
-            font_weight="bold",
-        )
-        complement_ax.set_axis_off()
-        st.pyplot(complement_fig, use_container_width=True)
-        plt.close(complement_fig)
-    st.caption("What this means: these pairs can safely share a register.")
-
-    st.subheader("Step-by-Step Coloring")
-    steps = coloring_steps(graph)
-    if steps:
-        if "coloring_step" not in st.session_state or st.session_state.coloring_step > len(steps):
-            st.session_state.coloring_step = 1
-        step_number = st.slider("Coloring step", min_value=1, max_value=len(steps), key="coloring_step")
-        current_step = steps[step_number - 1]
-        used_by_neighbors = ", ".join(f"R{color + 1}" for color in current_step["neighbor_colors"])
-        st.write(
-            f"Vertex {current_step['vertex']} has neighbors using colors "
-            f"{{{used_by_neighbors}}}, so the smallest free color is R{current_step['color'] + 1}."
-        )
-        partial_coloring = current_step["partial_coloring"]
-        step_positions = nx.spring_layout(graph, seed=11)
-        step_palette = plt.get_cmap("tab20")
-        step_fills = [
-            step_palette(partial_coloring[node] % 20) if node in partial_coloring else "#eeeeee"
-            for node in graph.nodes()
-        ]
-        step_labels = {
-            node: f"{node}\nR{partial_coloring[node] + 1}" if node in partial_coloring else node
-            for node in graph.nodes()
-        }
-        step_fig, step_ax = plt.subplots(figsize=(9, 5))
-        nx.draw_networkx(
-            graph,
-            step_positions,
-            ax=step_ax,
-            node_color=step_fills,
-            labels=step_labels,
-            node_size=1300,
-            font_weight="bold",
-        )
-        step_ax.set_axis_off()
-        st.pyplot(step_fig, use_container_width=True)
-        plt.close(step_fig)
-        st.caption("What this means: only variables colored up to the selected step receive register colors.")
-
-    st.subheader("Maximum Clique")
-    st.write(f"Largest clique: {{{', '.join(clique_vertices)}}} (size {clique_size}).")
-    st.caption(
-        f"A clique of size {clique_size} needs at least {clique_size} registers, "
-        f"so {clique_size} is a lower bound."
-    )
-
-    st.subheader("04  |  Register Allocation")
-    allocation_rows = []
-    for variable in sorted(graph.nodes()):
-        color = coloring[variable]
-        allocation_rows.append({
-            "Variable": variable,
-            "Color Index": color,
-            "Assigned Register": f"R{color + 1}",
-            "Vertex Degree": graph.degree(variable),
-        })
-    st.dataframe(pd.DataFrame(allocation_rows), use_container_width=True, hide_index=True)
-    st.caption("What this means: every edge must have endpoints with different register labels.")
-
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Colors Used by Greedy Algorithm", used_colors)
-    c2.metric("Available Registers", register_count)
-    if greedy_fits:
-        c3.metric("Unused Registers", register_count - used_colors)
-        st.success(
-            f"Register budget satisfied: {used_colors} color(s) fit within "
-            f"{register_count} register(s)."
-        )
-    else:
-        c3.metric("Register Budget Deficit", used_colors - register_count)
-        st.warning(
-            f"The current greedy coloring uses {used_colors} color(s), exceeding "
-            f"the available budget of {register_count} register(s)."
-        )
-
-    st.subheader("Greedy Strategy Comparison")
-    strategy_results = compare_coloring_strategies(graph)
-    strategy_rows = [
-        {key: value for key, value in result.items() if key != "Coloring"}
-        for result in strategy_results
-    ]
-    st.dataframe(pd.DataFrame(strategy_rows), use_container_width=True, hide_index=True)
-    st.caption("What this means: each greedy strategy chooses the next vertex in a different order.")
-
-    validity = check_coloring_validity(graph, coloring)
-    if validity["valid"]:
-        st.success("Coloring validity: PASS. For every edge (u, v): color(u) ≠ color(v).")
-    else:
-        st.error(f"Coloring validity: FAIL. Bad edges: {validity['bad_edges']}")
-    st.caption("What this means: a valid coloring never gives the same color to both endpoints of an edge.")
-    if st.button("Test a wrong coloring"):
-        if graph.number_of_edges() == 0:
-            st.info("This graph has no edges, so no adjacent pair can be assigned the same color.")
+        if exact_count is None:
+            st.info("The graph is too large for exact search (the limit is 12 vertices).")
         else:
-            wrong_coloring = coloring.copy()
-            bad_left, bad_right = next(iter(graph.edges()))
-            wrong_coloring[bad_right] = wrong_coloring[bad_left]
-            wrong_result = check_coloring_validity(graph, wrong_coloring)
-            st.error(f"Deliberately incorrect coloring: FAIL. Bad edges: {wrong_result['bad_edges']}")
+            st.success(f"Greedy used {used_colors} colors; the exact minimum is {exact_count}.")
+            if used_colors > exact_count:
+                st.warning("Greedy is not always optimal: a different valid coloring uses fewer colors.")
+        st.caption("What this means: the chromatic number is the smallest number of colors needed for a proper coloring.")
+        st.caption("Finding an exact chromatic number is NP-complete, so practical compilers use heuristics.")
 
-    exact_count, exact_assignment = exact_coloring(graph)
-    if exact_count is None:
-        st.info("graph too large for exact search")
-    else:
-        st.write(f"Greedy used {used_colors} colors, the exact minimum is {exact_count}.")
-        st.caption("What this means: the chromatic number is the fewest colors that can color every edge properly.")
-        if used_colors > exact_count:
-            st.warning("Greedy coloring is not always optimal; another valid coloring uses fewer colors.")
-    st.caption("Finding the exact chromatic number is NP-complete, so real compilers use heuristics.")
+        if clique_size:
+            st.info(
+                f"Largest clique: {{{', '.join(clique_vertices)}}}. "
+                f"A clique of size {clique_size} needs at least {clique_size} registers, "
+                f"so {clique_size} is a lower bound."
+            )
+        if used_colors <= register_count:
+            st.success("The current greedy coloring fits the available register budget.")
+        else:
+            st.warning(
+                f"The current greedy coloring needs {used_colors - register_count} "
+                "more register(s) than are available."
+            )
 
-    st.info(
-        "**Graph-coloring model:** variables are vertices, interference relationships "
-        "are edges, and registers are colors. Adjacent vertices must receive different colors."
-    )
-    st.subheader("05  |  Interactive Experiments")
-    st.markdown(
-        """
-Use the controls above to investigate the relationship between program structure and register allocation.
+        strategy_results = compare_coloring_strategies(graph)
+        strategy_rows = [
+            {key: value for key, value in result.items() if key != "Coloring"}
+            for result in strategy_results
+        ]
+        st.subheader("Compare coloring strategies")
+        st.dataframe(pd.DataFrame(strategy_rows), use_container_width=True, hide_index=True)
+        st.caption("What this means: each greedy strategy visits vertices in a different order.")
 
-- **Vary the register budget:** compare the allocation result with 2, 3, and 4 available registers.
-- **Modify the instruction sequence:** add or remove an instruction and observe changes in liveness and interference.
-- **Examine an isolated vertex:** select Isolated Variable and inspect the graph for a variable with no interference edges.
-- **Compare program structures:** select different examples to compare graph statistics and register assignments.
-- **Evaluate input validation:** enter an unsupported expression and review the diagnostic message.
-        """
-    )
-except ValueError as exc:
-    st.warning("Analysis could not be completed for the current input.")
-    st.error(f"Input validation: {exc}")
-    st.caption("Review the instruction format, correct the reported issue, or select a predefined example.")
+        validity = check_coloring_validity(graph, coloring)
+        if validity["valid"]:
+            st.success("Coloring check: PASS. For every edge (u, v): color(u) ≠ color(v).")
+        else:
+            st.error(f"Coloring check: FAIL. Bad edges: {validity['bad_edges']}")
+        st.caption("What this means: adjacent vertices must never receive the same color.")
+        if st.button("Demonstrate a wrong coloring"):
+            if graph.number_of_edges() == 0:
+                st.info("There are no edges, so no adjacent pair can be given the same color.")
+            else:
+                wrong_coloring = coloring.copy()
+                left, right = next(iter(graph.edges()))
+                wrong_coloring[right] = wrong_coloring[left]
+                wrong_result = check_coloring_validity(graph, wrong_coloring)
+                st.error(f"Expected result: FAIL. Conflicting edges: {wrong_result['bad_edges']}")
+
+        with st.expander("Explore coloring one vertex at a time"):
+            steps = coloring_steps(graph)
+            if steps:
+                step_number = st.slider(
+                    "Coloring step", min_value=1, max_value=len(steps), value=1,
+                    key="coloring_step"
+                )
+                step = steps[step_number - 1]
+                neighbors = ", ".join(f"R{color + 1}" for color in step["neighbor_colors"])
+                st.write(
+                    f"Vertex {step['vertex']} has neighbors using colors "
+                    f"{{{neighbors}}}, so the smallest free color is R{step['color'] + 1}."
+                )
+                step_fig = draw_graph(graph, step["partial_coloring"], width=7.5, height=4.4)
+                st.pyplot(step_fig, use_container_width=True)
+                plt.close(step_fig)
+                st.caption("What this means: gray vertices are not colored yet.")
+            else:
+                st.write("There are no vertices to color.")
+
+        with st.expander("Show variable-to-register assignments"):
+            allocation_rows = [
+                {
+                    "Variable": variable,
+                    "Degree": graph.degree(variable),
+                    "Color": coloring[variable],
+                    "Register": f"R{coloring[variable] + 1}",
+                }
+                for variable in sorted(graph.nodes())
+            ]
+            st.dataframe(pd.DataFrame(allocation_rows), use_container_width=True, hide_index=True)
+            st.caption("What this means: the register is the hardware resource represented by the assigned color.")
+
+except ValueError as error:
+    st.header("Input needs a small fix")
+    st.error(str(error))
+    st.caption("Check the line mentioned above. Each non-empty line should look like x = a or x = a + b.")
