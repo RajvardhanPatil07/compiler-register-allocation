@@ -22,6 +22,7 @@ RIGHT_HAND_SIDE = re.compile(
 
 
 def parse_line(line: str, number: int) -> Instruction:
+    # DM concept: USE and DEF are sets of variables read and written by one instruction.
     text = line.strip()
     if not text:
         raise ValueError("Empty instruction.")
@@ -49,6 +50,7 @@ def parse_line(line: str, number: int) -> Instruction:
 
 
 def parse_program(program: str) -> List[Instruction]:
+    # DM concept: a program is a finite sequence of numbered instructions.
     instructions = []
     for line in program.splitlines():
         if line.strip():

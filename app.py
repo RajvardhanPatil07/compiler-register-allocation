@@ -6,7 +6,7 @@ import streamlit as st
 
 from src.clique import maximum_clique
 from src.coloring import color_graph, coloring_count
-from src.coloring_tools import compare_coloring_strategies, exact_coloring
+from src.coloring_tools import coloring_steps, compare_coloring_strategies, exact_coloring
 from src.graph_stats import (
     adjacency_matrix,
     check_handshake_lemma,
@@ -15,8 +15,10 @@ from src.graph_stats import (
     degree_table,
 )
 from src.interference import build_interference_graph, graph_statistics
-from src.liveness import analyze_liveness
-from src.parser import parse_program
+from src.liveness import analyze_liveness, liveness_equation
+from src.live_ranges import build_live_ranges
+from src.relation_check import build_complement_graph, check_relation_properties
+from src.validity import check_coloring_validity
 
 
 st.set_page_config(
@@ -123,11 +125,36 @@ try:
             "Three-Address Code": item.text,
             "LIVE-IN": ", ".join(sorted(live_in[index])) or "∅",
             "LIVE-OUT": ", ".join(sorted(live_out[index])) or "∅",
+            "Set equation": liveness_equation(
+                item.use, live_out[index], item.define, live_in[index]
+            ),
         }
         for index, item in enumerate(instructions)
     ]
     st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
-    st.caption("What this means: LIVE-IN and LIVE-OUT show which variables may still be needed around each instruction.")
+    st.caption("What this means: union (∪) adds USE variables; set difference (−) removes variables defined by this instruction.")
+
+    st.subheader("Live Range Timeline")
+    live_range_rows = build_live_ranges(instructions, live_in, live_out)
+    live_range_frame = pd.DataFrame(live_range_rows)
+    st.dataframe(live_range_frame, use_container_width=True, hide_index=True)
+    st.caption("What this means: each bar spans a variable's live range across instruction numbers.")
+    if live_range_rows:
+        timeline_fig, timeline_ax = plt.subplots(figsize=(10, max(3, len(live_range_rows) * 0.35)))
+        for row_index, row in enumerate(live_range_rows):
+            timeline_ax.barh(
+                row["Variable"],
+                row["End"] - row["Start"] + 0.7,
+                left=row["Start"] - 0.35,
+            )
+        timeline_ax.set_xlabel("Instruction number")
+        timeline_ax.set_ylabel("Variable")
+        timeline_ax.set_xticks([item.number for item in instructions])
+        timeline_ax.grid(axis="x", linestyle=":", alpha=0.4)
+        timeline_fig.tight_layout()
+        st.pyplot(timeline_fig, use_container_width=True)
+        plt.close(timeline_fig)
+    st.caption("Two variables whose bars overlap interfere, so they get an edge.")
 
     st.subheader("03  |  Interference Graph")
     st.caption("What this means: vertices are variables and edges connect variables that cannot share a register.")
@@ -213,6 +240,80 @@ try:
         st.caption("What this means: node fill shows the assigned register; outline color identifies the connected component.")
 
     clique_vertices, clique_size = maximum_clique(graph)
+    st.subheader("Interference Relation")
+    relation_details = check_relation_properties(graph)
+    relation_rows = [
+        {"Property": "Reflexive", "Result": "Yes" if relation_details["reflexive"] else "No"},
+        {"Property": "Irreflexive", "Result": "Yes" if relation_details["irreflexive"] else "No"},
+        {"Property": "Symmetric", "Result": "Yes" if relation_details["symmetric"] else "No"},
+        {"Property": "Transitive", "Result": "Yes" if relation_details["transitive"] else "No"},
+    ]
+    st.dataframe(pd.DataFrame(relation_rows), use_container_width=True, hide_index=True)
+    st.caption("What this means: R contains ordered pairs of variables that interfere; undirected edges give symmetry.")
+    if relation_details["counterexample"] is not None:
+        first, middle, last = relation_details["counterexample"]
+        st.write(f"Transitivity counter-example: ({first}, {middle}) and ({middle}, {last}) are in R, but ({first}, {last}) is not.")
+        st.warning("R is not an equivalence relation because it is not transitive.")
+    else:
+        st.write("No transitivity counter-example exists, so the relation is transitive for this input.")
+
+    st.subheader("Complement Graph")
+    complement = build_complement_graph(graph)
+    if complement.number_of_nodes():
+        complement_positions = nx.spring_layout(complement, seed=17)
+        complement_fig, complement_ax = plt.subplots(figsize=(9, 5))
+        nx.draw_networkx(
+            complement,
+            complement_positions,
+            ax=complement_ax,
+            node_color="lightblue",
+            edge_color="gray",
+            node_size=1100,
+            font_weight="bold",
+        )
+        complement_ax.set_axis_off()
+        st.pyplot(complement_fig, use_container_width=True)
+        plt.close(complement_fig)
+    st.caption("What this means: these pairs can safely share a register.")
+
+    st.subheader("Step-by-Step Coloring")
+    steps = coloring_steps(graph)
+    if steps:
+        if "coloring_step" not in st.session_state or st.session_state.coloring_step > len(steps):
+            st.session_state.coloring_step = 1
+        step_number = st.slider("Coloring step", min_value=1, max_value=len(steps), key="coloring_step")
+        current_step = steps[step_number - 1]
+        used_by_neighbors = ", ".join(f"R{color + 1}" for color in current_step["neighbor_colors"])
+        st.write(
+            f"Vertex {current_step['vertex']} has neighbors using colors "
+            f"{{{used_by_neighbors}}}, so the smallest free color is R{current_step['color'] + 1}."
+        )
+        partial_coloring = current_step["partial_coloring"]
+        step_positions = nx.spring_layout(graph, seed=11)
+        step_palette = plt.get_cmap("tab20")
+        step_fills = [
+            step_palette(partial_coloring[node] % 20) if node in partial_coloring else "#eeeeee"
+            for node in graph.nodes()
+        ]
+        step_labels = {
+            node: f"{node}\nR{partial_coloring[node] + 1}" if node in partial_coloring else node
+            for node in graph.nodes()
+        }
+        step_fig, step_ax = plt.subplots(figsize=(9, 5))
+        nx.draw_networkx(
+            graph,
+            step_positions,
+            ax=step_ax,
+            node_color=step_fills,
+            labels=step_labels,
+            node_size=1300,
+            font_weight="bold",
+        )
+        step_ax.set_axis_off()
+        st.pyplot(step_fig, use_container_width=True)
+        plt.close(step_fig)
+        st.caption("What this means: only variables colored up to the selected step receive register colors.")
+
     st.subheader("Maximum Clique")
     st.write(f"Largest clique: {{{', '.join(clique_vertices)}}} (size {clique_size}).")
     st.caption(
@@ -257,6 +358,22 @@ try:
     ]
     st.dataframe(pd.DataFrame(strategy_rows), use_container_width=True, hide_index=True)
     st.caption("What this means: each greedy strategy chooses the next vertex in a different order.")
+
+    validity = check_coloring_validity(graph, coloring)
+    if validity["valid"]:
+        st.success("Coloring validity: PASS. For every edge (u, v): color(u) ≠ color(v).")
+    else:
+        st.error(f"Coloring validity: FAIL. Bad edges: {validity['bad_edges']}")
+    st.caption("What this means: a valid coloring never gives the same color to both endpoints of an edge.")
+    if st.button("Test a wrong coloring"):
+        if graph.number_of_edges() == 0:
+            st.info("This graph has no edges, so no adjacent pair can be assigned the same color.")
+        else:
+            wrong_coloring = coloring.copy()
+            bad_left, bad_right = next(iter(graph.edges()))
+            wrong_coloring[bad_right] = wrong_coloring[bad_left]
+            wrong_result = check_coloring_validity(graph, wrong_coloring)
+            st.error(f"Deliberately incorrect coloring: FAIL. Bad edges: {wrong_result['bad_edges']}")
 
     exact_count, exact_assignment = exact_coloring(graph)
     if exact_count is None:

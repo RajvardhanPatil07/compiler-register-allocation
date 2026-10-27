@@ -7,6 +7,7 @@ from .parser import Instruction
 
 
 def build_interference_graph(instructions: List[Instruction], live_in: List[Set[str]], live_out: List[Set[str]]) -> nx.Graph:
+    # DM concept: an undirected edge joins variables that cannot share a register.
     graph = nx.Graph()
     variables = set()
     for instruction in instructions:
@@ -25,6 +26,7 @@ def build_interference_graph(instructions: List[Instruction], live_in: List[Set[
 
 
 def graph_statistics(graph: nx.Graph) -> dict:
+    # DM concept: vertex, edge and degree counts summarize a graph's structure.
     degrees = dict(graph.degree())
     return {
         "vertices": graph.number_of_nodes(),
