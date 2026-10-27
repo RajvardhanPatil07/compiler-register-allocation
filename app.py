@@ -3,7 +3,7 @@ import networkx as nx
 import pandas as pd
 import streamlit as st
 
-from src.clique import maximum_clique
+from src.clique import explain_pigeonhole, maximum_clique
 from src.coloring import color_graph, coloring_count
 from src.coloring_tools import coloring_steps, compare_coloring_strategies, exact_coloring
 from src.graph_stats import (
@@ -18,6 +18,7 @@ from src.liveness import analyze_liveness, liveness_equation
 from src.live_ranges import build_live_ranges
 from src.parser import parse_program
 from src.relation_check import build_complement_graph, check_relation_properties
+from src.cnf_view import generate_coloring_cnf
 from src.validity import check_coloring_validity
 
 
@@ -327,6 +328,14 @@ try:
                 f"A clique of size {clique_size} needs at least {clique_size} registers, "
                 f"so {clique_size} is a lower bound."
             )
+
+        pigeonhole = explain_pigeonhole(graph, register_count)
+        if pigeonhole["impossible"]:
+            st.error(pigeonhole["message"])
+        else:
+            st.success(pigeonhole["message"])
+        st.caption("What this means: if more pairwise-interfering variables exist than registers, two would have to share a register.")
+
         if used_colors <= register_count:
             st.success("The current greedy coloring fits the available register budget.")
         else:
@@ -359,6 +368,17 @@ try:
                 wrong_coloring[right] = wrong_coloring[left]
                 wrong_result = check_coloring_validity(graph, wrong_coloring)
                 st.error(f"Expected result: FAIL. Conflicting edges: {wrong_result['bad_edges']}")
+
+        with st.expander("CNF encoding of k-coloring"):
+            cnf = generate_coloring_cnf(graph, register_count)
+            st.write("The proposition x(v, c) means variable v receives register/color c.")
+            st.dataframe(pd.DataFrame(cnf["counts"]), use_container_width=True, hide_index=True)
+            st.caption("What this means: the count table reports how many constraints are created in each group.")
+            st.dataframe(pd.DataFrame(cnf["clauses"]), use_container_width=True, hide_index=True)
+            if cnf["truncated"]:
+                st.info(f"Showing the first {cnf['display_limit']} of {cnf['total_clauses']} clauses.")
+            st.caption("Propositions represent choices, OR means at least one option holds, NOT forbids a choice, and CNF is an AND of OR-clauses.")
+            st.caption("What this means: the clauses encode coloring rules; no SAT solver is used.")
 
         with st.expander("Explore coloring one vertex at a time"):
             steps = coloring_steps(graph)
