@@ -5,6 +5,7 @@ from streamlit.testing.v1 import AppTest
 
 
 class StreamlitAppTests(unittest.TestCase):
+    # DM concept: the app presents the graph-coloring model without crashing on valid input.
     def test_app_runs_and_reacts_to_edits(self):
         # Resolve app.py from the repository root, not relative to tests/.
         repository_root = Path(__file__).resolve().parents[1]

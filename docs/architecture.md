@@ -1,56 +1,53 @@
 # Project Architecture
 
-```text
-Three-Address Code
-        |
-        v
-     Parser
-        |
-        +----> USE / DEF
-        |
-        v
- Liveness Analysis
-        |
-        +----> LIVE-IN / LIVE-OUT
-        |
-        v
- Interference Graph
-        |
-        +----> Graph Statistics
-        |
-        v
-   Graph Coloring
-        |
-        v
- Register Allocation
-        |
-        v
- Streamlit Dashboard
-```
+The application preserves the original compiler-analysis pipeline:
 
-## Mathematical interpretation
+~~~text
+Three-address code
+       |
+       v
+     Parser ------> USE / DEF
+       |
+       v
+ Liveness analysis -> LIVE-IN / LIVE-OUT and set equations
+       |
+       v
+ Interference graph -> degree, clique, relation and complement views
+       |
+       v
+ Greedy / exact coloring
+       |
+       +--> validity and CNF explanation
+       |
+       +--> degree-based spilling and rewritten teaching-model code
+       |
+       v
+ Three-page Streamlit interface
+~~~
 
-Let `V` be the set of program variables. The interference graph is `G = (V, E)`.
+## Mathematical model
 
-A vertex represents a variable. An edge represents a conflict between variables that cannot share a register in the simplified model. A color represents one register. A valid coloring gives different colors to adjacent vertices.
+Let V be the set of variables and E the set of interference edges. The graph is G = (V, E). An edge means that two variables must receive different colors. A color represents one register.
 
-The project uses NetworkX's greedy `largest_first` strategy. It produces a valid coloring and an upper bound on the minimum number of colors needed; it does not always calculate the exact chromatic number.
+The chromatic number is the minimum number of colors in a proper coloring. Greedy algorithms provide quick valid colorings, but they do not always use the minimum number of colors. The exact search is limited to 12 vertices. For general graphs, deciding whether a 3-coloring exists is NP-complete; computing the chromatic number is NP-hard.
 
-## Supported input
+A clique of size m is a lower bound of m colors. If the register budget k is smaller than the clique size, the pigeonhole principle proves that allocation without spilling is impossible.
 
-Each non-empty line must be an assignment with exactly one `=` sign, for example:
+The CNF view generates at-least-one, at-most-one and adjacent-different clauses. It prints constraints but does not call a SAT solver.
 
-```text
+## Input rules
+
+Each non-empty line is an assignment with exactly one = sign, such as:
+
+~~~text
 t1 = a * b
 t2 = t1 + c
 copy = t2
 answer = 42
-```
+~~~
 
-The left side must be a variable name. The right side must be a variable or number, optionally followed by one operator (`+`, `-`, `*`, `/`, or `%`) and another variable or number. Each line contains at most one operator because the app expects simplified three-address code. Parentheses, function calls, comparisons, branches, and loops are not supported.
+The left side must be a variable name. The right side must be a variable or number, optionally followed by one operator (+, -, *, /, %) and another variable or number. Unsupported symbols and expressions produce line-numbered errors. A variable used before a later definition produces a line-numbered diagnostic. A name that is never assigned is treated as an external input.
 
-## Current simplification
+## Simplifications
 
-The application analyzes a straight-line sequence. Variables used before being assigned are treated as inputs to the program. The final result variable is not automatically treated as an observable output or kept live after the last instruction.
-
-The project does not currently implement control-flow graphs, branches, loops, register spilling, assembly generation, or machine-specific register constraints. Those are separate extensions, not requirements of the current model.
+The liveness model analyzes straight-line instruction sequences only. The spill demonstration removes a highest-degree vertex and represents it as MEM[name]; it does not insert real load/store instructions. There are no branches, loops, machine-specific constraints, or assembly emission.

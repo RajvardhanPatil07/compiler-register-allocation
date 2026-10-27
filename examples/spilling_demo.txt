@@ -1,0 +1,6 @@
+a = 1
+b = 1
+c = 1
+t1 = a + b
+t2 = t1 + c
+result = t2 + a
