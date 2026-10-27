@@ -97,7 +97,7 @@ def draw_graph(graph: nx.Graph, coloring: dict, width: float = 8.5,
         else:
             faces.append("#eeeeee")
             labels[vertex] = str(vertex)
-        outlines.append(outline_palette(component_number[vertex])
+        outlines.append(outline_palette(component_number[vertex]))
 
     nx.draw_networkx_edges(graph, positions, ax=ax, edge_color="#777777", width=1.3)
     nx.draw_networkx_nodes(
