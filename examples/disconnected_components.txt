@@ -1,0 +1,7 @@
+a = 1
+b = 1
+left = a + b
+x = 2
+y = 3
+right = x + y
+unused = 7

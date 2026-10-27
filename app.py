@@ -33,38 +33,98 @@ EXAMPLES = {
     "Custom Program": """a = b + c
 d = a + e
 result = d + c""",
-    "Easy: Simple chain": """t1 = a + b
+    "Easy: 2 registers": """a = 1
+b = a
+c = a + b
+d = a + c""",
+    "Medium: 3 registers": """a = 1
+b = a
+c = a + b
+d = b
+e = b
+d = e
+a = c + d
+b = a
+e = c""",
+    "Hard: 4 registers": """a = 1
+b = a
+c = a + b
+d = b + c
+e = c + d
+f = a + e
+g = f + b
+h = a + g
+g = c""",
+    "Spilling demo: try 2 registers": """a = 1
+b = 1
+c = 1
+t1 = a + b
 t2 = t1 + c
-result = t2 + d""",
-    "Mixed arithmetic": """t1 = a * b
-t2 = c / d
-t3 = t1 + t2
-result = t3 - e""",
-    "Extended sequence": """p = a * b
-q = p + c
-r = q / d
-s = r % e
-t = s + p
-result = t * f""",
-    "High interference": """t1 = a + b
-t2 = c + d
-t3 = e + f
-t4 = t1 + t2
-t5 = t3 + t4
-result = t5 + a""",
-    "Isolated variable": """a = b + c
-d = a * e
-unused = d + c""",
+result = t2 + a""",
+    "Greedy vs exact minimum": """a = 1
+b = 1
+c = a + b
+d = b + a
+e = d + c
+f = b + a
+g = e + d
+h = f + a
+i = a + c
+b = d + g
+b = c + d
+a = i""",
+    "Disconnected components": """a = 1
+b = 1
+left = a + b
+x = 2
+y = 3
+right = x + y
+unused = 7""",
 }
+
+EXAMPLE_DESCRIPTIONS = {
+    "Custom Program": "Write your own short assignment sequence.",
+    "Easy: 2 registers": "Small graph with an exact minimum of 2 colors.",
+    "Medium: 3 registers": "A slightly richer graph that needs 3 colors.",
+    "Hard: 4 registers": "A denser graph with an exact minimum of 4 colors.",
+    "Spilling demo: try 2 registers": "Needs 3 colors; the example automatically sets the budget to 2.",
+    "Greedy vs exact minimum": "A checked example where largest_first uses 6 colors but exact search finds 5.",
+    "Disconnected components": "Several independent graph components plus isolated variables.",
+}
+
+THEORY_CONCEPTS = [
+    ("Set", "A set is a collection of distinct elements.", "{a, b, c}", "Program page: USE, DEF, LIVE-IN and LIVE-OUT."),
+    ("Union", "Union combines the elements that appear in either set.", "{a, b} ∪ {b, c} = {a, b, c}", "Liveness equation: USE ∪ (LIVE-OUT − DEF)."),
+    ("Difference", "Set difference keeps elements from the first set that are not in the second.", "{a, b, c} − {b} = {a, c}", "Liveness equation: remove variables defined by the instruction."),
+    ("Relation", "A relation is a set of ordered pairs between elements.", "R = {(a, b), (b, a)}", "The interference graph is shown as an ordered-pair relation."),
+    ("Reflexive", "A relation is reflexive when every element relates to itself.", "(a, a) must be in R for every a", "The interference relation is not reflexive because there are no self-edges."),
+    ("Symmetric", "A relation is symmetric when aRb implies bRa.", "If (a, b) is in R, then (b, a) is in R", "Undirected interference edges create pairs in both directions."),
+    ("Transitive", "A relation is transitive when aRb and bRc imply aRc.", "On a path a—b—c, (a, c) is missing", "The relation checker finds a counter-example when one exists."),
+    ("Equivalence relation", "An equivalence relation is reflexive, symmetric and transitive.", "Equality is an equivalence relation", "Interference is not an equivalence relation when it fails reflexivity or transitivity."),
+    ("Undirected graph", "An undirected graph has vertices joined by edges without direction.", "Vertices {a, b}; edge {a, b}", "The interference graph models variables and conflicts."),
+    ("Degree", "A vertex degree is the number of edges connected to that vertex.", "If a connects to b and c, degree(a) = 2", "Degree table and the spilling heuristic."),
+    ("Handshake lemma", "The sum of all vertex degrees equals twice the number of edges.", "Degrees 1, 2, 1 sum to 4 = 2 × 2 edges", "Advanced graph details validate this identity."),
+    ("Connected component", "A connected component is a maximal group joined by paths.", "Component {a, b}, separate component {c, d}", "Different graph outlines identify connected components."),
+    ("Clique", "A clique is a set of vertices that are all pairwise adjacent.", "A triangle is a clique of size 3", "The clique size gives a lower bound on the required registers."),
+    ("Graph coloring", "A proper coloring assigns different colors to adjacent vertices.", "For edge a—b, use R1 and R2", "Coloring and register assignment page."),
+    ("Chromatic number", "The chromatic number is the fewest colors needed for a proper coloring.", "A triangle has chromatic number 3", "The bounded exact-coloring search reports the minimum for small graphs."),
+    ("Greedy algorithm", "A greedy algorithm makes the next local choice without searching every full solution.", "Color the highest-degree uncolored vertex first", "Compare largest_first, smallest_last and DSATUR."),
+    ("Complement graph", "The complement connects distinct vertices that were not connected in the original graph.", "If a—b is absent, it appears in the complement", "Complement graph: these pairs do not interfere."),
+    ("Proposition", "A proposition is a statement that can be true or false.", "x(a, 1): a receives color 1", "The CNF view represents color choices with propositions."),
+    ("CNF", "Conjunctive normal form is an AND of clauses, where each clause is an OR of literals.", "(x(a,1) OR x(a,2)) AND (NOT x(a,1) OR NOT x(a,2))", "The app lists the clauses for k-coloring; it does not run a SAT solver."),
+    ("Pigeonhole principle", "If more objects than boxes must be assigned, at least one box receives two objects.", "3 pairwise-interfering variables cannot fit in 2 registers", "The clique/register-budget message explains why spilling is required."),
+    ("NP-completeness", "For general graphs and k ≥ 3, deciding whether a k-coloring exists is NP-complete.", "Exact search can become expensive as a graph grows", "The app limits exact coloring to 12 vertices and compares fast heuristics."),
+    ("Backtracking", "Backtracking tries a choice and undoes it when that choice cannot lead to a solution.", "Try R1; if a neighbor conflicts, undo and try R2", "The exact chromatic-number search tries colors one at a time."),
+]
+
 
 
 def load_example() -> None:
-    # DM concept: example programs are finite instruction sequences for testing the graph model.
+    # DM concept: each example is a finite instruction sequence with a known graph property.
     selected = st.session_state["example_choice"]
-    if selected == "Custom Program":
-        st.session_state["program_text"] = EXAMPLES["Custom Program"]
-    else:
-        st.session_state["program_text"] = EXAMPLES[selected]
+    st.session_state["program_text"] = EXAMPLES[selected]
+    if selected == "Spilling demo: try 2 registers":
+        st.session_state["register_count"] = 2
 
 
 def draw_graph(graph: nx.Graph, coloring: dict, width: float = 8.5,
@@ -132,9 +192,11 @@ st.markdown(
 )
 
 if "example_choice" not in st.session_state:
-    st.session_state["example_choice"] = "Extended sequence"
+    st.session_state["example_choice"] = "Easy: 2 registers"
 if "program_text" not in st.session_state:
     st.session_state["program_text"] = EXAMPLES[st.session_state["example_choice"]]
+if "register_count" not in st.session_state:
+    st.session_state["register_count"] = 3
 
 with st.sidebar:
     st.header("Your program")
@@ -145,6 +207,7 @@ with st.sidebar:
         key="example_choice",
         on_change=load_example,
     )
+    st.caption(EXAMPLE_DESCRIPTIONS[st.session_state["example_choice"]])
     program = st.text_area(
         "Edit the instructions",
         key="program_text",
@@ -155,7 +218,7 @@ with st.sidebar:
         "Available registers",
         min_value=1,
         max_value=12,
-        value=3,
+        key="register_count",
         help="The number of register colors that are available to the allocator.",
     )
     st.caption("Allowed operators: +, -, *, /, %. The input is a small teaching language, not full Python or C.")
@@ -442,6 +505,14 @@ try:
             ]
             st.dataframe(pd.DataFrame(allocation_rows), use_container_width=True, hide_index=True)
             st.caption("What this means: the register is the hardware resource represented by the assigned color.")
+
+        st.subheader("Theory and viva guide")
+        st.caption("Open a concept to see its definition, a tiny example, and where it appears in the project.")
+        for concept, definition, example, location in THEORY_CONCEPTS:
+            with st.expander(concept):
+                st.write(f"**Definition:** {definition}")
+                st.code(example, language="text")
+                st.write(f"**Where it appears in this project:** {location}")
 
 except ValueError as error:
     st.header("Input needs a small fix")

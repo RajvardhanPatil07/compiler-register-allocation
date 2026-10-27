@@ -1,56 +1,55 @@
 # Demo Experiments
 
-Use these short experiments to demonstrate that the application is an interactive lab. Change one thing at a time and compare the tables, graph, and register status.
+Use one example at a time and change only one control so the graph changes are easier to explain.
 
-## Experiment 1: Change the register budget
+## 1. Two-color graph
 
-1. Select **Mixed Operations**.
-2. Observe the interference graph and the number of greedy colors used.
-3. Move the available-register slider from 2 to 3 and then 4.
+1. Choose **Easy: 2 registers**.
+2. Open **Coloring & Results**.
+3. Observe the exact minimum and the assigned registers.
 
-**Observe:** The source program, liveness sets, and interference graph should remain unchanged when only the slider changes. The spare-register or register-shortage status can change.
+**DM concept:** chromatic number and proper graph coloring.
 
-**Why:** The graph represents conflicts in the program. The register slider represents the number of colors available for the current assignment.
+## 2. Clique and pigeonhole principle
 
-## Experiment 2: Make an isolated vertex
+1. Choose **Spilling demo: try 2 registers**. The register slider moves to two.
+2. Open **Coloring & Results**.
+3. Read the clique lower bound and the pigeonhole explanation.
+4. Expand **Allocation with spilling and rewritten code**.
 
-1. Select **Isolated Variable**.
-2. Find the variable `unused` in the graph.
+**DM concept:** a clique of size three cannot fit into two colors; spilling removes a vertex from the graph until the remaining graph fits.
 
-The example ends with:
+## 3. Greedy is not always optimal
 
-```text
-unused = d + c
-```
+1. Choose **Greedy vs exact minimum**.
+2. Compare the largest_first strategy result with the exact minimum.
 
-No later instruction uses `unused`, and its definition is the final instruction. In this model, it should appear as an isolated vertex.
+**Observe:** this example is unit-tested to make sure largest-first uses six colors while the exact chromatic number is five.
 
-3. Add this line at the end:
+**DM concept:** greedy heuristics versus exact search/backtracking.
 
-```text
-result = unused + a
-```
+## 4. Disconnected components and complement graph
 
-**Observe:** `unused` now has a later use, so the liveness information and interference graph can change. Compare its degree and the edge list before and after the edit.
+1. Choose **Disconnected components**.
+2. Inspect the different component outlines.
+3. Expand **Advanced graph details** and **Relation properties and complement graph**.
 
-## Experiment 3: Change the program
+**DM concept:** connected components, relation properties and graph complement.
 
-1. Select **Custom**.
-2. Remove one instruction or add a new assignment.
-3. Watch the USE/DEF table, LIVE-IN/LIVE-OUT table, graph vertices, edges, and graph statistics update.
+## 5. Understand one liveness equation
 
-**Observe:** Program edits can change liveness and therefore the graph. The change depends on which variables are used and defined, not merely on how many lines are present.
+1. Choose **Medium: 3 registers**.
+2. Open **Liveness & Graph**.
+3. Pick one instruction and read the equation LIVE-IN = USE ∪ (LIVE-OUT − DEF).
 
-## Experiment 4: Try invalid input
+**DM concept:** set union and set difference.
 
-Enter an invalid line such as:
+## 6. Deliberately invalid coloring
 
-```text
-value = a + * b
-```
+1. Choose any program with interference edges.
+2. Open **Coloring & Results**.
+3. Use **Demonstrate a wrong coloring**.
 
-**Observe:** The app shows a readable validation message instead of trying to build a graph from malformed input. Correct the expression and continue experimenting.
+**Observe:** the validity checker reports the edge whose endpoints share a color.
 
-## What the current model demonstrates
-
-The app handles a straight-line sequence of simple assignments. It does not model branches or loops, eliminate dead instructions, generate machine code, or implement register spilling. Greedy coloring provides a valid coloring, but it does not guarantee the minimum number of colors for every graph.
+**DM concept:** a universal condition over every edge: color(u) ≠ color(v).

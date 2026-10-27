@@ -1,0 +1,9 @@
+a = 1
+b = a
+c = a + b
+d = b + c
+e = c + d
+f = a + e
+g = f + b
+h = a + g
+g = c
