@@ -42,6 +42,8 @@ Use one example at a time and change only one control so the graph changes are e
 2. Open **Liveness & Graph**.
 3. Pick one instruction and read the equation LIVE-IN = USE ∪ (LIVE-OUT − DEF).
 
+**Observe:** blank lines do not shift the source line numbers shown on the live-range chart.
+
 **DM concept:** set union and set difference.
 
 ## 6. Deliberately invalid coloring

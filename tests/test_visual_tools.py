@@ -17,6 +17,14 @@ class LivenessDisplayTests(unittest.TestCase):
             "LIVE-IN = USE ∪ (LIVE-OUT − DEF) = {a} ∪ ({b, c} − {d}) = {a, b, c}",
         )
 
+    # DM concept: source instruction numbers remain correct when blank lines are skipped.
+    def test_live_ranges_keep_source_line_numbers(self):
+        instructions = parse_program("a = 1\n\nresult = a + 1")
+        self.assertEqual([item.number for item in instructions], [1, 3])
+        live_in, live_out = analyze_liveness(instructions)
+        ranges = {row["Variable"]: row for row in build_live_ranges(instructions, live_in, live_out)}
+        self.assertEqual(ranges["result"]["Start"], 3)
+
     # DM concept: a live range records a variable's start and last live instruction.
     def test_live_ranges_cover_input_and_defined_variables(self):
         instructions = parse_program("a = b + c\nd = a + b\nresult = d")

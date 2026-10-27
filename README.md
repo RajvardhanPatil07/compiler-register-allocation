@@ -25,7 +25,7 @@ python -m unittest discover -s tests -v
 
 1. **Program:** choose an example, edit assignments, and inspect USE/DEF.
 2. **Liveness & Graph:** read the LIVE-IN/LIVE-OUT set equations, live-range timeline, interference graph, degree information, handshake lemma, adjacency matrix, connected components, relation properties, and complement graph.
-3. **Coloring & Results:** compare greedy strategies, check the exact chromatic number for small graphs, step through colors, verify a coloring, see the clique/pigeonhole explanation, inspect CNF clauses, spill variables when the register budget is too small, and compare original with rewritten teaching-model code. The bottom of the page contains the theory/viva guide.
+3. **Coloring & Results:** compare greedy strategies, check the exact chromatic number for small graphs, step through colors, verify a coloring, see the clique/pigeonhole explanation, inspect CNF clauses, spill variables when the register budget is too small, and compare original with rewritten teaching-model code. The final tab on the results page contains a concise concept reference.
 
 Program controls stay in the sidebar as you move between pages.
 
@@ -52,11 +52,13 @@ Program controls stay in the sidebar as you move between pages.
 | CNF clause display | Propositions, NOT, OR, conjunctive normal form |
 | Degree-based spilling | Degree-based heuristic |
 | R1, R2, MEM[name] rewritten program | Mapping mathematical colors to a compiler model |
-| Theory expanders | Definitions, tiny examples and viva explanations |
+| Theory expanders | Definitions, small examples and project connections |
 
 ## Example programs
 
 The dropdown includes examples for a two-color graph, a three-color graph, a four-color graph, spilling at two registers, a verified case where largest_first uses more colors than the exact minimum, and disconnected components. The exact-search example is checked by a unit test so it does not rely on a guessed result.
+
+The app distinguishes the NP-complete decision question (whether a 3-coloring exists for a general graph) from the NP-hard optimization task of computing the chromatic number.
 
 The same programs are available as files under examples/.
 

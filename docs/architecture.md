@@ -29,7 +29,7 @@ Three-address code
 
 Let V be the set of variables and E the set of interference edges. The graph is G = (V, E). An edge means that two variables must receive different colors. A color represents one register.
 
-The chromatic number is the minimum number of colors in a proper coloring. Greedy algorithms provide quick valid colorings, but they do not always use the minimum number of colors. The exact search is limited to 12 vertices.
+The chromatic number is the minimum number of colors in a proper coloring. Greedy algorithms provide quick valid colorings, but they do not always use the minimum number of colors. The exact search is limited to 12 vertices. For general graphs, deciding whether a 3-coloring exists is NP-complete; computing the chromatic number is NP-hard.
 
 A clique of size m is a lower bound of m colors. If the register budget k is smaller than the clique size, the pigeonhole principle proves that allocation without spilling is impossible.
 
