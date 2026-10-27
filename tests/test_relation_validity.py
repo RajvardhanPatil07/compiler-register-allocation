@@ -32,6 +32,14 @@ class ColoringValidityTests(unittest.TestCase):
         self.assertTrue(result["valid"])
         self.assertEqual(result["bad_edges"], [])
 
+
+    # DM concept: a coloring must assign a color to every vertex, including isolated ones.
+    def test_missing_isolated_vertex_fails(self):
+        graph = nx.empty_graph(["a", "isolated"])
+        result = check_coloring_validity(graph, {"a": 0})
+        self.assertFalse(result["valid"])
+        self.assertEqual(result["missing_vertices"], ["isolated"])
+
     # DM concept: equal colors on adjacent vertices violate proper coloring.
     def test_wrong_coloring_fails(self):
         graph = nx.path_graph(["a", "b", "c"])

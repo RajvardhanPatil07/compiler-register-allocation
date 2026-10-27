@@ -19,7 +19,7 @@ class PigeonholeTests(unittest.TestCase):
     def test_pigeonhole_message_passes_when_budget_is_enough(self):
         result = explain_pigeonhole(nx.complete_graph(3), 3)
         self.assertFalse(result["impossible"])
-        self.assertIn("meets the clique lower bound", result["message"])
+        self.assertIn("does not prove that the graph", result["message"])
 
 
 class CnfTests(unittest.TestCase):

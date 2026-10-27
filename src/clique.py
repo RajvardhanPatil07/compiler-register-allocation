@@ -25,9 +25,9 @@ def explain_pigeonhole(graph: nx.Graph, register_count: int) -> dict:
         )
     else:
         message = (
-            f"The available register budget ({register_count}) meets the clique "
-            f"lower bound ({size}). This lower bound alone does not prove that "
-            "the complete graph fits the budget."
+            f"The clique lower bound ({size}) is no greater than the register "
+            f"budget ({register_count}). This check does not prove that the graph "
+            "can be colored within the available registers."
         )
     return {
         "clique": vertices,

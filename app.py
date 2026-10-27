@@ -113,7 +113,7 @@ THEORY_CONCEPTS = [
     ("Proposition", "A proposition is a statement that can be true or false.", "x(a, 1): a receives color 1", "The CNF view represents color choices with propositions."),
     ("CNF", "Conjunctive normal form is an AND of clauses, where each clause is an OR of literals.", "(x(a,1) OR x(a,2)) AND (NOT x(a,1) OR NOT x(a,2))", "The app lists the clauses for k-coloring; it does not run a SAT solver."),
     ("Pigeonhole principle", "If more objects than boxes must be assigned, at least one box receives two objects.", "3 pairwise-interfering variables cannot fit in 2 registers", "The clique/register-budget message explains why spilling is required."),
-    ("NP-completeness", "For general graphs and k ≥ 3, deciding whether a k-coloring exists is NP-complete.", "Exact search can become expensive as a graph grows", "The app limits exact coloring to 12 vertices and compares fast heuristics."),
+    ("NP-completeness", "For each fixed k ≥ 3, deciding whether a general graph has a k-coloring is NP-complete; computing the chromatic number is NP-hard.", "Exact search can become expensive as a graph grows", "The app limits exact coloring to 12 vertices and compares fast heuristics."),
     ("Backtracking", "Backtracking tries a choice and undoes it when that choice cannot lead to a solution.", "Try R1; if a neighbor conflicts, undo and try R2", "The exact chromatic-number search tries colors one at a time."),
 ]
 
@@ -250,7 +250,7 @@ try:
                 "USE (read)": ", ".join(sorted(item.use)) or "∅",
                 "DEF (written)": ", ".join(sorted(item.define)) or "∅",
             })
-        st.dataframe(pd.DataFrame(instruction_rows), use_container_width=True, hide_index=True)
+        st.dataframe(pd.DataFrame(instruction_rows), width="stretch", hide_index=True)
         st.caption("What this means: USE is the set of variables an instruction reads; DEF is the variable it writes.")
 
         st.subheader("What the project does")
@@ -283,7 +283,7 @@ try:
                 ),
             })
         st.subheader("When is each variable needed?")
-        st.dataframe(pd.DataFrame(live_rows), use_container_width=True, hide_index=True)
+        st.dataframe(pd.DataFrame(live_rows), width="stretch", hide_index=True)
         st.caption("What this means: union (∪) adds variables from USE; set difference (−) removes variables written by DEF.")
 
         with st.expander("Show the live-range timeline"):
@@ -299,18 +299,19 @@ try:
                     )
                 range_ax.set_xlabel("Instruction number")
                 range_ax.set_ylabel("Variable")
-                range_ax.set_xlim(0.5, len(instructions) + 0.5)
-                range_ax.set_xticks(list(range(1, len(instructions) + 1)))
+                line_numbers = [item.number for item in instructions]
+                range_ax.set_xlim(min(line_numbers) - 0.5, max(line_numbers) + 0.5)
+                range_ax.set_xticks(line_numbers)
                 range_ax.grid(axis="x", linestyle=":", alpha=0.4)
                 range_fig.tight_layout(pad=0.5)
-                st.pyplot(range_fig, use_container_width=True)
+                st.pyplot(range_fig, width="stretch")
                 plt.close(range_fig)
-            st.caption("What this means: overlapping live-range bars indicate variables that may need different registers.")
+            st.caption("What this means: overlapping live intervals are a visual clue; actual interference edges are determined by the liveness sets.")
 
         st.subheader("The interference graph")
         st.write("Each circle is a variable. An edge means the two variables must use different registers.")
         graph_fig = draw_graph(graph, coloring)
-        st.pyplot(graph_fig, use_container_width=True)
+        st.pyplot(graph_fig, width="stretch")
         plt.close(graph_fig)
         st.caption("What this means: node fill shows the assigned register; outline color distinguishes connected components.")
 
@@ -322,7 +323,7 @@ try:
 
         with st.expander("Advanced graph details"):
             st.markdown("**Degree table**")
-            st.dataframe(degree_table(graph), use_container_width=True, hide_index=True)
+            st.dataframe(degree_table(graph), width="stretch", hide_index=True)
             st.caption("What this means: a vertex's degree is the number of incident edges.")
             st.write("Degree sequence, highest first:", degree_sequence(graph))
             handshake = check_handshake_lemma(graph)
@@ -333,14 +334,14 @@ try:
             )
             st.caption("What this means: every undirected edge contributes two to the total degree.")
             st.markdown("**Adjacency matrix**")
-            st.dataframe(adjacency_matrix(graph), use_container_width=True)
+            st.dataframe(adjacency_matrix(graph), width="stretch")
             st.caption("What this means: 1 means an edge exists; 0 means there is no edge.")
             st.markdown("**Connected components**")
             component_rows = [
                 {"Component": number + 1, "Variables": ", ".join(sorted(component))}
                 for number, component in enumerate(connected_components(graph))
             ]
-            st.dataframe(pd.DataFrame(component_rows), use_container_width=True, hide_index=True)
+            st.dataframe(pd.DataFrame(component_rows), width="stretch", hide_index=True)
             st.caption("What this means: each component is a group of vertices connected by paths.")
 
         with st.expander("Relation properties and complement graph"):
@@ -351,7 +352,7 @@ try:
                 {"Property": "Symmetric", "Result": "Yes" if relation["symmetric"] else "No"},
                 {"Property": "Transitive", "Result": "Yes" if relation["transitive"] else "No"},
             ]
-            st.dataframe(pd.DataFrame(relation_rows), use_container_width=True, hide_index=True)
+            st.dataframe(pd.DataFrame(relation_rows), width="stretch", hide_index=True)
             st.caption("What this means: an interference edge gives a relation between its two endpoints in both directions.")
             if relation["counterexample"] is not None:
                 first, middle, last = relation["counterexample"]
@@ -364,155 +365,201 @@ try:
                 st.write("The relation is transitive for this input.")
             complement = build_complement_graph(graph)
             complement_fig = draw_graph(complement, {})
-            st.pyplot(complement_fig, use_container_width=True)
+            st.pyplot(complement_fig, width="stretch")
             plt.close(complement_fig)
             st.caption("What this means: complement edges connect pairs that do not interfere, so they may share a register.")
 
+
     else:
         st.header("3. Coloring & Results")
-        st.write("A coloring is valid when every edge connects two different colors.")
+        st.write("Explore the coloring result, allocation model, mathematical constraints, or concept reference.")
+        coloring_tab, allocation_tab, logic_tab, reference_tab = st.tabs(
+            ["Coloring", "Allocation", "Proofs & logic", "Concept reference"]
+        )
         exact_count, exact_assignment = exact_coloring(graph)
-        top = st.columns(3)
-        top[0].metric("Greedy colors used", used_colors)
-        top[1].metric("Registers available", register_count)
-        top[2].metric("Maximum clique size", clique_size)
-
-        if exact_count is None:
-            st.info("The graph is too large for exact search (the limit is 12 vertices).")
-        else:
-            st.success(f"Greedy used {used_colors} colors; the exact minimum is {exact_count}.")
-            if used_colors > exact_count:
-                st.warning("Greedy is not always optimal: a different valid coloring uses fewer colors.")
-        st.caption("What this means: the chromatic number is the smallest number of colors needed for a proper coloring.")
-        st.caption("Finding an exact chromatic number is NP-complete, so practical compilers use heuristics.")
-
-        if clique_size:
-            st.info(
-                f"Largest clique: {{{', '.join(clique_vertices)}}}. "
-                f"A clique of size {clique_size} needs at least {clique_size} registers, "
-                f"so {clique_size} is a lower bound."
-            )
-
-        pigeonhole = explain_pigeonhole(graph, register_count)
-        if pigeonhole["impossible"]:
-            st.error(pigeonhole["message"])
-        else:
-            st.success(pigeonhole["message"])
-        st.caption("What this means: if more pairwise-interfering variables exist than registers, two would have to share a register.")
-
-        if used_colors <= register_count:
-            st.success("The current greedy coloring fits the available register budget.")
-        else:
-            st.warning(
-                f"The current greedy coloring needs {used_colors - register_count} "
-                "more register(s) than are available."
-            )
-
         strategy_results = compare_coloring_strategies(graph)
-        strategy_rows = [
-            {key: value for key, value in result.items() if key != "Coloring"}
-            for result in strategy_results
-        ]
-        st.subheader("Compare coloring strategies")
-        st.dataframe(pd.DataFrame(strategy_rows), use_container_width=True, hide_index=True)
-        st.caption("What this means: each greedy strategy visits vertices in a different order.")
-
         validity = check_coloring_validity(graph, coloring)
-        if validity["valid"]:
-            st.success("Coloring check: PASS. For every edge (u, v): color(u) ≠ color(v).")
-        else:
-            st.error(f"Coloring check: FAIL. Bad edges: {validity['bad_edges']}")
-        st.caption("What this means: adjacent vertices must never receive the same color.")
-        if st.button("Demonstrate a wrong coloring"):
-            if graph.number_of_edges() == 0:
-                st.info("There are no edges, so no adjacent pair can be given the same color.")
+
+        with coloring_tab:
+            summary = st.columns(3)
+            summary[0].metric("Greedy colors used", used_colors)
+            summary[1].metric("Registers available", register_count)
+            summary[2].metric("Exact minimum", "Too large" if exact_count is None else exact_count)
+            if exact_count is None:
+                st.info("Exact coloring is limited to graphs with at most 12 vertices.")
             else:
-                wrong_coloring = coloring.copy()
-                left, right = next(iter(graph.edges()))
-                wrong_coloring[right] = wrong_coloring[left]
-                wrong_result = check_coloring_validity(graph, wrong_coloring)
-                st.error(f"Expected result: FAIL. Conflicting edges: {wrong_result['bad_edges']}")
-
-        with st.expander("CNF encoding of k-coloring"):
-            cnf = generate_coloring_cnf(graph, register_count)
-            st.write("The proposition x(v, c) means variable v receives register/color c.")
-            st.dataframe(pd.DataFrame(cnf["counts"]), use_container_width=True, hide_index=True)
-            st.caption("What this means: the count table reports how many constraints are created in each group.")
-            st.dataframe(pd.DataFrame(cnf["clauses"]), use_container_width=True, hide_index=True)
-            if cnf["truncated"]:
-                st.info(f"Showing the first {cnf['display_limit']} of {cnf['total_clauses']} clauses.")
-            st.caption("Propositions represent choices, OR means at least one option holds, NOT forbids a choice, and CNF is an AND of OR-clauses.")
-            st.caption("What this means: the clauses encode coloring rules; no SAT solver is used.")
-
-        with st.expander("Explore coloring one vertex at a time"):
-            steps = coloring_steps(graph)
-            if steps:
-                step_number = st.slider(
-                    "Coloring step", min_value=1, max_value=len(steps), value=1,
-                    key="coloring_step"
+                st.write(f"Greedy used {used_colors} colors; the exact minimum is {exact_count}.")
+                if used_colors > exact_count:
+                    st.warning("Greedy is not always optimal: another valid coloring uses fewer colors.")
+            if used_colors > register_count:
+                st.warning(
+                    f"The selected greedy strategy uses {used_colors} colors, more than the "
+                    f"{register_count} available registers. This alone does not prove every "
+                    "coloring needs that many registers."
                 )
-                step = steps[step_number - 1]
-                neighbors = ", ".join(f"R{color + 1}" for color in step["neighbor_colors"])
-                st.write(
-                    f"Vertex {step['vertex']} has neighbors using colors "
-                    f"{{{neighbors}}}, so the smallest free color is R{step['color'] + 1}."
-                )
-                step_fig = draw_graph(graph, step["partial_coloring"], width=7.5, height=4.4)
-                st.pyplot(step_fig, use_container_width=True)
-                plt.close(step_fig)
-                st.caption("What this means: gray vertices are not colored yet.")
             else:
-                st.write("There are no vertices to color.")
+                st.success("The selected greedy coloring fits the available register budget.")
+            st.caption(
+                "For general graphs, deciding whether a 3-coloring exists is NP-complete; "
+                "computing the chromatic number is NP-hard. Practical compilers use fast heuristics."
+            )
 
-        with st.expander("Allocation with spilling and rewritten code", expanded=True):
+            st.subheader("Compare coloring strategies")
+            strategy_rows = [
+                {key: value for key, value in item.items() if key != "Coloring"}
+                for item in strategy_results
+            ]
+            st.dataframe(pd.DataFrame(strategy_rows), width="stretch", hide_index=True)
+            st.caption("What this means: each greedy strategy visits vertices in a different order.")
+
+            if validity["valid"]:
+                st.success("Coloring check: PASS. Every vertex is colored and every edge has different endpoint colors.")
+            else:
+                st.error("Coloring check: FAIL.")
+                if validity["bad_edges"]:
+                    st.write("Conflicting or incompletely colored edges:", validity["bad_edges"])
+                if validity["missing_vertices"]:
+                    st.write("Uncolored vertices:", validity["missing_vertices"])
+            st.caption("What this means: a proper coloring assigns every vertex a color and keeps adjacent vertices different.")
+
+            if st.button("Demonstrate a wrong coloring"):
+                if graph.number_of_edges() == 0:
+                    st.info("There are no edges, so no adjacent pair can be given the same color.")
+                else:
+                    wrong_coloring = coloring.copy()
+                    left, right = next(iter(graph.edges()))
+                    wrong_coloring[right] = wrong_coloring[left]
+                    wrong_result = check_coloring_validity(graph, wrong_coloring)
+                    st.error(f"Expected result: FAIL. Conflicting edges: {wrong_result['bad_edges']}")
+
+            with st.expander("Color one vertex at a time"):
+                steps = coloring_steps(graph)
+                if steps:
+                    step_number = st.slider(
+                        "Coloring step", min_value=1, max_value=len(steps), value=1,
+                        key="coloring_step"
+                    )
+                    step = steps[step_number - 1]
+                    neighbors = ", ".join(f"R{color + 1}" for color in step["neighbor_colors"])
+                    st.write(
+                        f"Vertex {step['vertex']} has neighbors using colors "
+                        f"{{{neighbors}}}, so the smallest free color is R{step['color'] + 1}."
+                    )
+                    step_fig = draw_graph(
+                        graph, step["partial_coloring"], width=7.5, height=4.4
+                    )
+                    st.pyplot(step_fig, width="stretch")
+                    plt.close(step_fig)
+                    st.caption("What this means: gray vertices have not been colored yet.")
+                else:
+                    st.write("There are no vertices to color.")
+
+        with allocation_tab:
+            st.subheader("Allocation with spilling")
             spill_result = allocate_with_spilling(graph, register_count)
             spilled = spill_result["spilled"]
             spill_coloring = spill_result["coloring"]
             if spilled:
-                ordered_spills = ", ".join(
+                order_text = ", ".join(
                     f"{index + 1}. {name}" for index, name in enumerate(spilled)
                 )
-                st.warning(f"Spilled to memory in this order: {ordered_spills}")
+                st.warning(f"Spilled to memory in this order: {order_text}")
             else:
                 st.success("No spilling was needed for this register budget.")
             st.metric("Registers used after spilling", spill_result["registers_used"])
-            st.caption("A spilled variable lives in memory instead of a register. Real compilers pick spills by cost, we pick by degree to keep it simple.")
-            st.markdown("**Coloring after spilling**")
-            after_fig = draw_graph(spill_result["graph"], spill_coloring, width=7.5, height=4.6)
-            st.pyplot(after_fig, use_container_width=True)
-            plt.close(after_fig)
-            st.caption("What this means: spilled vertices are removed from this smaller graph; remaining vertices are colored.")
+            st.caption(
+                "A spilled variable lives in memory instead of a register. This teaching model "
+                "chooses the highest-degree variable; real compilers estimate spill cost."
+            )
+            post_spill_fig = draw_graph(
+                spill_result["graph"], spill_coloring, width=7.5, height=4.4
+            )
+            st.pyplot(post_spill_fig, width="stretch")
+            plt.close(post_spill_fig)
+            st.caption("What this means: spilled vertices are removed from the reduced graph; the rest are colored.")
 
+            st.subheader("Original code vs. register model")
             rewritten_lines = rewrite_program_with_registers(instructions, spill_coloring, spilled)
             source_column, rewritten_column = st.columns(2)
             with source_column:
                 st.markdown("**Original code**")
                 st.code(program, language="text")
             with rewritten_column:
-                st.markdown("**Teaching-model rewritten code**")
+                st.markdown("**Teaching-model rewrite**")
                 st.code("\n".join(rewritten_lines), language="text")
             st.caption("What this means: R1, R2, ... represent registers; MEM[name] marks a spilled variable.")
 
-        with st.expander("Show variable-to-register assignments"):
-            allocation_rows = [
-                {
+            st.subheader("Final storage assignment")
+            storage_rows = []
+            for variable in sorted(graph.nodes()):
+                if variable in spilled:
+                    location = f"MEM[{variable}]"
+                else:
+                    location = f"R{spill_coloring[variable] + 1}"
+                storage_rows.append({
                     "Variable": variable,
                     "Degree": graph.degree(variable),
-                    "Color": coloring[variable],
-                    "Register": f"R{coloring[variable] + 1}",
-                }
-                for variable in sorted(graph.nodes())
-            ]
-            st.dataframe(pd.DataFrame(allocation_rows), use_container_width=True, hide_index=True)
-            st.caption("What this means: the register is the hardware resource represented by the assigned color.")
+                    "Storage location": location,
+                })
+            st.dataframe(pd.DataFrame(storage_rows), width="stretch", hide_index=True)
+            st.caption("What this means: each variable is assigned either a register or a teaching-model memory location.")
 
-        st.subheader("Theory and viva guide")
-        st.caption("Open a concept to see its definition, a tiny example, and where it appears in the project.")
-        for concept, definition, example, location in THEORY_CONCEPTS:
-            with st.expander(concept):
-                st.write(f"**Definition:** {definition}")
-                st.code(example, language="text")
-                st.write(f"**Where it appears in this project:** {location}")
+        with logic_tab:
+            st.subheader("Clique lower bound")
+            clique_vertices, clique_size = maximum_clique(graph)
+            st.write(f"Largest clique: {{{', '.join(clique_vertices)}}} (size {clique_size}).")
+            st.caption(
+                f"A clique of size {clique_size} needs at least {clique_size} registers, "
+                f"so {clique_size} is a lower bound."
+            )
+            pigeonhole = explain_pigeonhole(graph, register_count)
+            if pigeonhole["impossible"]:
+                st.error(pigeonhole["message"])
+            else:
+                st.info(pigeonhole["message"])
+            st.caption("What this means: a clique larger than the available register set proves that spilling is necessary for this model.")
+
+            st.subheader("CNF encoding of k-coloring")
+            cnf = generate_coloring_cnf(graph, register_count)
+            st.write("The proposition x(v, c) means variable v receives register/color c.")
+            st.dataframe(pd.DataFrame(cnf["counts"]), width="stretch", hide_index=True)
+            st.caption("What this means: the count table shows how many clauses each rule creates.")
+            st.dataframe(pd.DataFrame(cnf["clauses"]), width="stretch", hide_index=True)
+            if cnf["truncated"]:
+                st.info(f"Showing the first {cnf['display_limit']} of {cnf['total_clauses']} clauses.")
+            st.caption(
+                "Propositions represent choices; OR combines alternatives; NOT forbids a choice; "
+                "CNF is an AND of OR-clauses. No SAT solver is used."
+            )
+            st.caption("What this means: the clauses encode the rules for proper graph coloring.")
+
+        with reference_tab:
+            st.subheader("Discrete Mathematics reference")
+            st.caption("Each topic has a short definition, a small example, and its connection to this application.")
+            concept_details = {item[0]: item[1:] for item in THEORY_CONCEPTS}
+            sections = [
+                ("Sets and relations", [
+                    "Set", "Union", "Difference", "Relation", "Reflexive",
+                    "Symmetric", "Transitive", "Equivalence relation"
+                ]),
+                ("Graph theory", [
+                    "Undirected graph", "Degree", "Handshake lemma",
+                    "Connected component", "Clique", "Complement graph"
+                ]),
+                ("Coloring and logic", [
+                    "Graph coloring", "Chromatic number", "Greedy algorithm",
+                    "Proposition", "CNF", "Pigeonhole principle",
+                    "NP-completeness", "Backtracking"
+                ]),
+            ]
+            for section_title, concept_names in sections:
+                st.markdown(f"#### {section_title}")
+                for concept in concept_names:
+                    definition, example, location = concept_details[concept]
+                    with st.expander(concept):
+                        st.write(f"**Definition:** {definition}")
+                        st.code(example, language="text")
+                        st.write(f"**Where it appears in this application:** {location}")
 
 except ValueError as error:
     st.header("Input needs a small fix")
