@@ -1,11 +1,15 @@
 import unittest
+from pathlib import Path
 
 from streamlit.testing.v1 import AppTest
 
 
 class StreamlitAppTests(unittest.TestCase):
     def test_app_runs_and_reacts_to_edits(self):
-        app = AppTest.from_file("app.py", default_timeout=15).run()
+        # Resolve app.py from the repository root, not relative to tests/.
+        repository_root = Path(__file__).resolve().parents[1]
+        app_path = repository_root / "app.py"
+        app = AppTest.from_file(str(app_path), default_timeout=15).run()
         self.assertEqual(len(app.exception), 0, msg=str(app.exception))
 
         # Changing the register budget should rerun the page without an error.
