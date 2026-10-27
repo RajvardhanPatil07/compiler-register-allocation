@@ -119,7 +119,7 @@ class InterferenceAndColoringTests(unittest.TestCase):
 
     # DM concept: isolated vertices form one-vertex connected components.
     def test_graph_statistics_include_isolated_vertices(self):
-        instructions = parse_program("x = a + b\na_result = x")
+        instructions = parse_program("x = a + b\nresult = x")
         live_in, live_out = analyze_liveness(instructions)
         graph = build_interference_graph(instructions, live_in, live_out)
         stats = graph_statistics(graph)
