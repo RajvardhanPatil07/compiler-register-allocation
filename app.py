@@ -20,6 +20,7 @@ from src.parser import parse_program
 from src.relation_check import build_complement_graph, check_relation_properties
 from src.cnf_view import generate_coloring_cnf
 from src.validity import check_coloring_validity
+from src.spilling import allocate_with_spilling, rewrite_program_with_registers
 
 
 st.set_page_config(
@@ -399,6 +400,35 @@ try:
                 st.caption("What this means: gray vertices are not colored yet.")
             else:
                 st.write("There are no vertices to color.")
+
+        with st.expander("Allocation with spilling and rewritten code", expanded=True):
+            spill_result = allocate_with_spilling(graph, register_count)
+            spilled = spill_result["spilled"]
+            spill_coloring = spill_result["coloring"]
+            if spilled:
+                ordered_spills = ", ".join(
+                    f"{index + 1}. {name}" for index, name in enumerate(spilled)
+                )
+                st.warning(f"Spilled to memory in this order: {ordered_spills}")
+            else:
+                st.success("No spilling was needed for this register budget.")
+            st.metric("Registers used after spilling", spill_result["registers_used"])
+            st.caption("A spilled variable lives in memory instead of a register. Real compilers pick spills by cost, we pick by degree to keep it simple.")
+            st.markdown("**Coloring after spilling**")
+            after_fig = draw_graph(spill_result["graph"], spill_coloring, width=7.5, height=4.6)
+            st.pyplot(after_fig, use_container_width=True)
+            plt.close(after_fig)
+            st.caption("What this means: spilled vertices are removed from this smaller graph; remaining vertices are colored.")
+
+            rewritten_lines = rewrite_program_with_registers(instructions, spill_coloring, spilled)
+            source_column, rewritten_column = st.columns(2)
+            with source_column:
+                st.markdown("**Original code**")
+                st.code(program, language="text")
+            with rewritten_column:
+                st.markdown("**Teaching-model rewritten code**")
+                st.code("\n".join(rewritten_lines), language="text")
+            st.caption("What this means: R1, R2, ... represent registers; MEM[name] marks a spilled variable.")
 
         with st.expander("Show variable-to-register assignments"):
             allocation_rows = [
