@@ -8,3 +8,9 @@ env/
 .pytest_cache/
 .coverage
 .DS_Store
+
+# Generated reports and local credentials
+output/
+.env.*
+*.pem
+*.key
