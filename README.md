@@ -1,93 +1,83 @@
-# Compiler Register Allocation using Graph Coloring
+# Register allocation using graph coloring
 
-A beginner-friendly Discrete Mathematics laboratory that demonstrates how compiler variables can be mapped to a limited set of registers using graph coloring.
+A Discrete Mathematics project that shows which variables can share a register.
+It uses sets, liveness analysis, and graph coloring, with four pages for the demo.
 
-## Project idea
+## Start the app
 
-A simplified three-address program is parsed into USE and DEF sets. Backward liveness analysis finds which values are still needed. The app builds an undirected interference graph: vertices are variables and an edge means that two variables must not share a register in this teaching model. A graph coloring assigns colors (registers) so adjacent vertices have different colors.
+Use Python 3.10 or newer. From the project folder:
 
-## Start quickly
-
-Python 3.10 or newer is recommended.
-
-~~~bash
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
 python -m pip install -r requirements.txt
 streamlit run app.py
-~~~
+```
 
-Run tests from the repository root:
+## Read the code
 
-~~~bash
-python -m unittest discover -s tests -v
-~~~
+1. `allocator.py`: the four main steps: read the code, find live values, build
+   the graph, and choose colors.
+2. `graph_tools.py`: graph details, color checks, cliques, and spilling.
+3. `app.py`: shared inputs and page navigation.
+4. `views/`: one short file per page. `frontend.py` holds shared display helpers.
 
-## Three-page tour
+Start with [the code and teacher guide](docs/code_walkthrough.md).
 
-1. **Program:** choose an example, edit assignments, and inspect USE/DEF.
-2. **Liveness & Graph:** read the LIVE-IN/LIVE-OUT set equations, live-range timeline, interference graph, degree information, handshake lemma, adjacency matrix, connected components, relation properties, and complement graph.
-3. **Coloring & Results:** compare greedy strategies, check the exact chromatic number for small graphs, step through colors, verify a coloring, see the clique/pigeonhole explanation, inspect CNF clauses, spill variables when the register budget is too small, and compare original with rewritten teaching-model code. The final tab on the results page contains a concise concept reference.
+## The four pages
 
-Program controls stay in the sidebar as you move between pages.
+| Page | What it shows |
+| --- | --- |
+| Program | The input and USE/DEF sets |
+| Liveness | Live sets, set equations, and a live-range chart |
+| Graph analysis | The graph, degrees, handshake lemma, matrix, components, and clique |
+| Register allocation | Registers, color checks, saved steps, method comparison, spilling, and rewritten code |
 
-## Feature-to-Discrete-Mathematics map
+The sidebar keeps your program and register count when you change pages.
+This version keeps 15 of the original README's 20 feature groups. Component
+lists replace colored component outlines. Exact search, CNF, relation checks,
+and the complement graph remain outside this simpler version.
 
-| Feature | DM concept demonstrated |
-|---|---|
-| USE, DEF, LIVE-IN, LIVE-OUT tables | Sets, union, set difference |
-| Liveness equation with actual set values | Set operations |
-| Live-range timeline | Live intervals and interference |
-| Interference graph | Undirected graphs and graph edges |
-| Degree table and degree sequence | Vertex degree |
-| Degree sum equals twice the edge count | Handshake lemma |
-| Adjacency matrix | Matrix representation of a graph |
-| Connected components with different outlines | Connectivity |
-| Maximum clique | Clique and lower bound on coloring |
-| largest_first, smallest_last, DSATUR comparison | Greedy algorithms |
-| Bounded exact search | Chromatic number and backtracking |
-| Step-by-step coloring | Proper graph coloring |
-| Coloring validity PASS/FAIL | Logical statement checked for every edge |
-| Interference relation checker | Relation, reflexivity, irreflexivity, symmetry and transitivity |
-| Complement graph | Graph complement |
-| Pigeonhole explanation for an undersized register budget | Pigeonhole principle |
-| CNF clause display | Propositions, NOT, OR, conjunctive normal form |
-| Degree-based spilling | Degree-based heuristic |
-| R1, R2, MEM[name] rewritten program | Mapping mathematical colors to a compiler model |
-| Theory expanders | Definitions, small examples and project connections |
+## Input rules
 
-## Example programs
+```text
+a = 1
+b = a
+c = a + b
+d = a + c
+```
 
-The dropdown includes examples for a two-color graph, a three-color graph, a four-color graph, spilling at two registers, a verified case where largest_first uses more colors than the exact minimum, and disconnected components. The exact-search example is checked by a unit test so it does not rely on a guessed result.
+Use one assignment per line. The right side can be a name, an unsigned number,
+or two values joined by one operator: `+`, `-`, `*`, `/`, `%`.
+Spaces around operators are optional. Blank lines are ignored.
 
-The app distinguishes the NP-complete decision question (whether a 3-coloring exists for a general graph) from the NP-hard optimization task of computing the chromatic number.
+Names never assigned anywhere are outside inputs. A name that is assigned
+must get its first value before it is read. For example, `a=a+1` needs an
+earlier line such as `a=1`.
 
-The same programs are available as files under examples/.
+The bounds are 100 assignments, 40 variables, 32 characters per name, and
+10,000 characters of text. The app explains input errors in the page.
 
-## Input format
+## What to explain to your teacher
 
-Each non-empty line should be a simple assignment such as:
+- A vertex is a variable. An edge means two values need different registers.
+- Variables can share a register if their values do not conflict.
+- Greedy coloring is a quick method; it may use more registers than needed.
+- A clique gives a lower bound. The app finds it only for graphs with up to 20 vertices.
+- Spilling moves variables to memory until our coloring fits. It may move more
+  variables than needed. `MEM[name]` is a memory marker, not real machine code.
+- The model handles assignments only, with no loops or branches. It does not
+  run arithmetic. Each name is one vertex, even when assigned again.
+- The last LIVE-OUT is empty. Live-range bars merge gaps; the live sets decide edges.
 
-~~~text
-t1 = a * b
-t2 = t1 + c
-copy = t2
-answer = 42
-~~~
+## Development
 
-Supported expressions are x = a and x = a + b using one of +, -, *, /, %. The parser reports line-numbered syntax errors and checks for a variable used before a later definition. A name that is never assigned is treated as an external program input. Blank lines are ignored.
+Install test dependencies and run the checks:
 
-## Implementation notes and limitations
+```bash
+python -m pip install -r requirements-dev.txt
+python -m pytest -q
+```
 
-- Uses Python, Streamlit, NetworkX, Pandas and Matplotlib; no new dependency is needed.
-- The UI remains split into three short, focused pages. Advanced tables and demonstrations are inside expanders.
-- Exact chromatic-number search is enabled only up to 12 vertices because exhaustive backtracking can be expensive.
-- CNF clauses are displayed for learning only; the app does not use a SAT solver.
-- Spilling is a teaching model: it repeatedly removes a highest-degree vertex, colors the remaining graph, and rewrites spilled variables as MEM[name]. A real compiler inserts loads/stores and normally chooses spills using estimated cost.
-- Liveness is for straight-line code only. Branches, loops, general expressions, machine-specific register constraints and full assembly generation are not implemented.
-
-## Repository commands
-
-~~~bash
-python -m compileall -q app.py src tests
-python -m unittest discover -s tests -v
-streamlit run app.py
-~~~
+See [testing](docs/testing.md), [input format](docs/input-format.md), and
+[contributing](CONTRIBUTING.md) for more detail.
