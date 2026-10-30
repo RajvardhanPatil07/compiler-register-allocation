@@ -1,0 +1,5 @@
+a = left + right
+b = a - 1
+c = b * 2
+d = c / 3
+result = d % 2
